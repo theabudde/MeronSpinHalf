@@ -158,8 +158,18 @@ def main():
         # print(charge)
         if charge.sum() != 0:
             raise('Total charge not zero')
+
         if charge.max() > 1:
             print(charge.max())
+            for c in charge:
+                if abs(c) != charge.max() and c != 0:
+                    raise('clusters of different charges mixed')
+
+        for j in range(t):
+            for i in range(n-1):
+                if cluster[i,j] != cluster[i+1,j] and abs(charge[cluster[i,j]]) == abs(charge[cluster[i+1,j]]) == 1 and charge[cluster[i,j]] == charge[cluster[i+1,j]]:
+                    raise('-1 +1 -1 +1 rule broken')
+
 
 
 if __name__ == "__main__":
