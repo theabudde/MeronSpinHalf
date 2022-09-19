@@ -2,17 +2,18 @@ import random
 import numpy as np
 from itertools import product
 
+
 def mc_step(n, t, w_a, w_b):
     # find clusters and flip
     visited = np.full((n, t), False)  # record if site has been visited
     x = 0
     y = 0
+    clusternr = 0
     while True:
-        flip = 0 if random.random() < 0.5 else 1  # decide if next cluster is to be flipped
         while True:
-            fermion[x, y] = 1 - fermion[x, y] if flip else fermion[x, y]  # flip
             visited[x, y] = True
             # follow bond loop
+            cluster[x, y] = clusternr
             if x % 2 == 0 and y % 2 == 0:
                 # top
                 if not bond[(x // 2 - 1) % (n // 2), (y - 1) % t] and not visited[x, (y - 1) % t]:
@@ -80,6 +81,7 @@ def mc_step(n, t, w_a, w_b):
             x = x % n  # boundary conditions
             y = y % t
 
+        clusternr += 1
         full = False
         for i, j in product(range(n), range(t)):
             if not visited[i, j]:
@@ -108,66 +110,57 @@ def mc_step(n, t, w_a, w_b):
         bond_debug[x, y] = bond[x // 2, y]
 
 
+
+
 def main():
     global fermion
     global bond
     global bond_debug
-    n = 4  # number of lattice points
-    t = 50   # number of half timesteps (#even + #odd)
-    b = 1 # beta
-    mc_steps = 50000000   # number of mc steps
+    global cluster
+    n = 8  # number of lattice points
+    t = 8  # number of half timesteps (#even + #odd)
+    b = 1   # beta
+    mc_steps = 500000   # number of mc steps
     initial_mc_steps = 5000
     w_a = 1/2  # np.exp(b/t)  # weight of a plaquettes U = t = 1
     w_b = 1/2  # np.sinh(b/t)  # weight of b plaquettes
 
-    fermion = np.full((n, t), False)    # fermion lattice initialized to empty
+    # fermion lattice initialized to reference configuration
+    fermion = np.full((n, t), False)
+    for i in range(n//2):
+        for j in range(t):
+            fermion[2*i, j] = True
+
+    cluster = np.full((n, t), 0)
+
     # bond lattice is squashed down and initalized to vertical plaquettes
     bond = np.full((n//2, t), False)    # bond lattice, 0 is vertical plaquette A, 1 is horizontal plaquette B
-
-    Z_0 = 0
-    n_avg = 0
-    avg_sign = 0
 
     #random.seed(42)
     bond_debug = np.full((n, t), - 1)   # only for debugging purposes
 
-    for mc in range(initial_mc_steps):
-        mc_step(n, t, w_a, w_b)
-
     for mc in range(mc_steps):
-
         mc_step(n, t, w_a, w_b)
-        
-        # calculate weight of configuration
-        weight_factor = 1
-        for x, y in product(range(n // 2), range(t)):
-            weight_factor *= w_a if not bond[x, y] else w_b
-        Z_0 += weight_factor
 
-        # calculate sign
-        sign = 1
-        for x in range(t//2-1):
-            # TODO maybe wrong plaquettes?
-            if fermion[0, 2*x+1] != fermion[-1, 2*x+1] and fermion[0, 2*x+2] != fermion[-1, 2*x+2] and fermion[0, 2*x+1] != fermion[0, 2*x+2]:
-                sign *= -1
+        charge = np.zeros(cluster.max() +1)
+        for j in range(t):
+            for c in range(cluster.max()+1):
+                rowcharge = 0
+                for i in range(n):
+                    if cluster[i, j] == c:
+                        if i % 2:
+                            rowcharge += 1
+                        else:
+                            rowcharge -= 1
+                if charge[c] != rowcharge and j > 0:
+                    raise('Charge varies over different rows')
+                charge[c] = rowcharge
+        # print(charge)
+        if charge.sum() != 0:
+            raise('Total charge not zero')
+        if charge.max() > 1:
+            print(charge.max())
 
-        # calculate average sign
-        avg_sign += sign * weight_factor
-
-        # calculate average occupancy
-        n_occupied = 0
-        for x in range(n):
-            if fermion[x, 0]:
-                n_occupied += 1
-            else:
-                n_occupied -= 1
-        n_avg += n_occupied / n * sign * weight_factor
-
-        if mc % 10000 == 0:
-            print(f'Z_0 = {Z_0}')
-            print(f'avg_sign = {avg_sign / Z_0}')
-            print(f'n_avg = {n_avg / avg_sign}')
-            print('________________________________')
 
 if __name__ == "__main__":
     main()
