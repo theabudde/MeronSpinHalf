@@ -117,10 +117,10 @@ def main():
     global bond
     global bond_debug
     global cluster
-    n = 8  # number of lattice points
+    n = 16  # number of lattice points
     t = 8  # number of half timesteps (#even + #odd)
     b = 1   # beta
-    mc_steps = 500000   # number of mc steps
+    mc_steps = 500000000   # number of mc steps
     initial_mc_steps = 5000
     w_a = 1/2  # np.exp(b/t)  # weight of a plaquettes U = t = 1
     w_b = 1/2  # np.sinh(b/t)  # weight of b plaquettes
@@ -131,7 +131,7 @@ def main():
         for j in range(t):
             fermion[2*i, j] = True
 
-    cluster = np.full((n, t), 0)
+    cluster = np.full((n, t), -1)
 
     # bond lattice is squashed down and initalized to vertical plaquettes
     bond = np.full((n//2, t), False)    # bond lattice, 0 is vertical plaquette A, 1 is horizontal plaquette B
@@ -160,16 +160,18 @@ def main():
             raise('Total charge not zero')
 
         if charge.max() > 1:
-            print(charge.max())
+            if np.count_nonzero(charge == charge.max()) > 1:
+                print('multiple 2 windings')
             for c in charge:
                 if abs(c) != charge.max() and c != 0:
                     raise('clusters of different charges mixed')
+        if charge.max() > 1:
+            print(charge.max())
 
         for j in range(t):
-            for i in range(n-1):
-                if cluster[i,j] != cluster[i+1,j] and abs(charge[cluster[i,j]]) == abs(charge[cluster[i+1,j]]) == 1 and charge[cluster[i,j]] == charge[cluster[i+1,j]]:
-                    raise('-1 +1 -1 +1 rule broken')
-
+            for i in range(n-2):
+                if cluster[i, j] != cluster[i+1, j] and abs(charge[cluster[i, j]]) == abs(charge[cluster[i+1, j]]) == 1:
+                    assert(charge[cluster[i, j]] != charge[cluster[i+1, j]])
 
 
 if __name__ == "__main__":
