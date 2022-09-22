@@ -15,9 +15,10 @@ class MeronAlgorithm:
         self.beta = beta
         self.mc_steps = mc_steps
 
-        self.cluster_positions = []     # one position of each cluster in order cluster_id
-        self.cluster_charges = np.array([0])    # charge of each cluster in order cluster_id
+        self.cluster_positions = []     # top left most position of each cluster in order cluster_id
+        self.cluster_charge = np.array([0])    # charge of each cluster in order cluster_id
         self.cluster_nr = 0     # number of clusters
+        self.cluster_group = np.array([0])  # closest charged left neighbor of every neutral cluster
 
         # fermion lattice initialized to reference configuration
         self.fermion = np.full((self.n, self.t), False)
@@ -38,15 +39,15 @@ class MeronAlgorithm:
             # top
             if not self.bond[(x // 2 - 1) % (self.n // 2), (y - 1) % self.t] and not visited[x, (y - 1) % self.t]:
                 y -= 1
+            # right
+            elif self.bond[x // 2, y] and not visited[(x + 1) % self.n, y]:
+                x += 1
             # left
             elif self.bond[(x // 2 - 1) % (self.n // 2), (y - 1) % self.t] and not visited[(x - 1) % self.n, y]:
                 x -= 1
             # bottom
             elif not self.bond[x // 2, y] and not visited[x, (y + 1) % self.t]:
                 y += 1
-            # right
-            elif self.bond[x // 2, y] and not visited[(x + 1) % self.n, y]:
-                x += 1
             # closed loop
             else:
                 loop_closed = True
@@ -54,15 +55,15 @@ class MeronAlgorithm:
             # top
             if not self.bond[x // 2, (y - 1) % self.t] and not visited[x, (y - 1) % self.t]:
                 y -= 1
+            # right
+            elif self.bond[x // 2, (y - 1) % self.t] and not visited[(x + 1) % self.n, y]:
+                x += 1
             # left
             elif self.bond[x // 2, y] and not visited[(x - 1) % self.n, y]:
                 x -= 1
             # bottom
             elif not self.bond[x // 2, y] and not visited[x, (y + 1) % self.t]:
                 y += 1
-            # right
-            elif self.bond[x // 2, (y - 1) % self.t] and not visited[(x + 1) % self.n, y]:
-                x += 1
             # closed loop
             else:
                 loop_closed = True
@@ -70,15 +71,15 @@ class MeronAlgorithm:
             # top
             if not self.bond[x // 2, (y - 1) % self.t] and not visited[x, (y - 1) % self.t]:
                 y -= 1
+            # right
+            elif self.bond[x // 2, (y - 1) % self.t] and not visited[(x + 1) % self.n, y]:
+                x += 1
             # left
             elif self.bond[(x // 2 - 1) % (self.n // 2), y] and not visited[(x - 1) % self.n, y]:
                 x -= 1
             # bottom
             elif not self.bond[(x // 2 - 1) % (self.n // 2), y] and not visited[x, (y + 1) % self.t]:
                 y += 1
-            # right
-            elif self.bond[x // 2, (y - 1) % self.t] and not visited[(x + 1) % self.n, y]:
-                x += 1
             # closed loop
             else:
                 loop_closed = True
@@ -86,15 +87,15 @@ class MeronAlgorithm:
             # top
             if not self.bond[x // 2, (y - 1) % self.t] and not visited[x, (y - 1) % self.t]:
                 y -= 1
+            # right
+            elif self.bond[x // 2, y] and not visited[(x + 1) % self.n, y]:
+                x += 1
             # left
             elif self.bond[x // 2, (y - 1) % self.t] and not visited[(x - 1) % self.n, y]:
                 x -= 1
             # bottom
             elif not self.bond[x // 2, y] and not visited[x, (y + 1) % self.t]:
                 y += 1
-            # right
-            elif self.bond[x // 2, y] and not visited[(x + 1) % self.n, y]:
-                x += 1
             # closed loop
             else:
                 loop_closed = True
@@ -154,7 +155,7 @@ class MeronAlgorithm:
     # reset to reference config
     def _reset(self):
         self.cluster_positions = []  # one position of each cluster in order cluster_id
-        self.cluster_charges = np.array([0])  # charge of each cluster in order cluster_id
+        self.cluster_charge = np.array([0])  # charge of each cluster in order cluster_id
         self.cluster_nr = 0  # number of clusters
 
         # fermion lattice initialized to reference configuration
@@ -171,6 +172,28 @@ class MeronAlgorithm:
 
         self.bond_debug = np.full((self.n, self.t), - 1)  # only for debugging purposes
 
+    def _find_clusters(self):
+        visited = np.full((self.n, self.t), False)  # record if site has been visited
+        cluster_nr = 0  # counter for how many clusters there are -1 and the ID given to each of the clusters
+        self.cluster_positions = []  # keeps one position of the cluster in order of cluster_id
+        for i, j in product(range(self.n), range(self.t)):  # check for a new cluster in all positions
+            if not visited[i, j]:  # if you haven't seen the loop before
+                x = i
+                y = j
+                self.cluster_positions.append([x, y])
+                # Go around a cluster loop
+                loop_closed = False
+                while not loop_closed:
+                    self.cluster_id[x, y] = cluster_nr  # give cluster its ID
+                    visited[x, y] = True  # Save where algorithm has been, so you don't go backwards around the loop
+
+                    # update x and y to next position in cluster loop
+                    x, y, loop_closed = self._cluster_loop_step(x, y, visited)
+
+                # look where to find next cluster
+                cluster_nr += 1
+        self.cluster_nr = cluster_nr + 1
+
     def mc_step(self):
         # reset to reference config
         self._reset()
@@ -179,35 +202,26 @@ class MeronAlgorithm:
         self._bond_assignment()
 
         # find clusters
-        visited = np.full((self.n, self.t), False)  # record if site has been visited
-        cluster_nr = 0  # counter for how many clusters there are -1 and the ID given to each of the clusters
-        self.cluster_positions = []  # keeps one position of the cluster in order of cluster_id
-        for i, j in product(range(self.n), range(self.t)):    # check for a new cluster in all positions
-            if not visited[i, j]:   # if you haven't seen the loop before
-                x = i
-                y = j
-                self.cluster_positions.append([x, y])
-                # Go around a cluster loop
-                loop_closed = False
-                while not loop_closed:
-                    self.cluster_id[x, y] = cluster_nr   # give cluster its ID
-                    visited[x, y] = True    # Save where algorithm has been, so you don't go backwards around the loop
+        self._find_clusters()
 
-                    # update x and y to next position in cluster loop
-                    x, y, loop_closed = self._cluster_loop_step(x, y, visited)
-
-                # look where to find next cluster
-                cluster_nr += 1
-        self.cluster_nr = cluster_nr + 1
+        # optional: run tests to verify hypothesis of cluster structure (very slow)
         self.tests()
 
-        # determine clusters charges
-        self.cluster_charges = np.zeros(len(self.cluster_positions))
+        # determine cluster's charges
+        self.cluster_charge = np.zeros(self.cluster_nr)
         for i in range(self.n):
             if i % 2:
-                self.cluster_charges[self.cluster_id[i, 0]] += 1
+                self.cluster_charge[self.cluster_id[i, 0]] += 1
             else:
-                self.cluster_charges[self.cluster_id[i, 0]] -= 1
+                self.cluster_charge[self.cluster_id[i, 0]] -= 1
+
+                # determine order of charged clusters
+        charged_cluster_order = []
+        for i in range(self.n):
+            if self.cluster_charge[self.cluster_id[i, 0]] != 0:
+                charged_cluster_order.append(self.cluster_id[i, 0])
+
+        
 
     def draw_bonds(self):
         scale = 40
