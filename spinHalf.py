@@ -3,12 +3,81 @@ import numpy as np
 from itertools import product
 from PIL import Image, ImageDraw
 
+
+def cluster_loop_step(x, y, visited, n, t):
+    loop_closed = False
+    if x % 2 == 0 and y % 2 == 0:
+        # top
+        if not bond[(x // 2 - 1) % (n // 2), (y - 1) % t] and not visited[x, (y - 1) % t]:
+            y -= 1
+        # left
+        elif bond[(x // 2 - 1) % (n // 2), (y - 1) % t] and not visited[(x - 1) % n, y]:
+            x -= 1
+        # bottom
+        elif not bond[x // 2, y] and not visited[x, (y + 1) % t]:
+            y += 1
+        # right
+        elif bond[x // 2, y] and not visited[(x + 1) % n, y]:
+            x += 1
+        # closed loop
+        else:
+            loop_closed = True
+    elif x % 2 == 1 and y % 2 == 0:
+        # top
+        if not bond[x // 2, (y - 1) % t] and not visited[x, (y - 1) % t]:
+            y -= 1
+        # left
+        elif bond[x // 2, y] and not visited[(x - 1) % n, y]:
+            x -= 1
+        # bottom
+        elif not bond[x // 2, y] and not visited[x, (y + 1) % t]:
+            y += 1
+        # right
+        elif bond[x // 2, (y - 1) % t] and not visited[(x + 1) % n, y]:
+            x += 1
+        # closed loop
+        else:
+            loop_closed = True
+    elif x % 2 == 0 and y % 2 == 1:
+        # top
+        if not bond[x // 2, (y - 1) % t] and not visited[x, (y - 1) % t]:
+            y -= 1
+        # left
+        elif bond[(x // 2 - 1) % (n // 2), y] and not visited[(x - 1) % n, y]:
+            x -= 1
+        # bottom
+        elif not bond[(x // 2 - 1) % (n // 2), y] and not visited[x, (y + 1) % t]:
+            y += 1
+        # right
+        elif bond[x // 2, (y - 1) % t] and not visited[(x + 1) % n, y]:
+            x += 1
+        # closed loop
+        else:
+            loop_closed = True
+    elif x % 2 == 1 and y % 2 == 1:
+        # top
+        if not bond[x // 2, (y - 1) % t] and not visited[x, (y - 1) % t]:
+            y -= 1
+        # left
+        elif bond[x // 2, (y - 1) % t] and not visited[(x - 1) % n, y]:
+            x -= 1
+        # bottom
+        elif not bond[x // 2, y] and not visited[x, (y + 1) % t]:
+            y += 1
+        # right
+        elif bond[x // 2, y] and not visited[(x + 1) % n, y]:
+            x += 1
+        # closed loop
+        else:
+            loop_closed = True
+    x = x % n  # boundary conditions
+    y = y % t
+    return x, y, loop_closed
+
+
 def mc_step(n, t, w_a, w_b):
     # find clusters and flip
     visited = np.full((n, t), False)  # record if site has been visited
-    x = 0
-    y = 0
-    clusternr = 0
     # bond assignment
     for x, y in product(range(n), range(t)):
         if y % 2 != x % 2:
@@ -25,89 +94,23 @@ def mc_step(n, t, w_a, w_b):
         # calculate bond config in nicer lattice for debugging purposes
         bond_debug[x, y] = bond[x // 2, y]
 
-    while True:
-        while True:
-            visited[x, y] = True
-            # follow bond loop
-            cluster[x, y] = clusternr
-            if x % 2 == 0 and y % 2 == 0:
-                # top
-                if not bond[(x // 2 - 1) % (n // 2), (y - 1) % t] and not visited[x, (y - 1) % t]:
-                    y -= 1
-                # left
-                elif bond[(x // 2 - 1) % (n // 2), (y - 1) % t] and not visited[(x - 1) % n, y]:
-                    x -= 1
-                # bottom
-                elif not bond[x // 2, y] and not visited[x, (y + 1) % t]:
-                    y += 1
-                # right
-                elif bond[x // 2, y] and not visited[(x + 1) % n, y]:
-                    x += 1
-                # closed loop
-                else:
-                    break
-            elif x % 2 == 1 and y % 2 == 0:
-                # top
-                if not bond[x // 2, (y - 1) % t] and not visited[x, (y - 1) % t]:
-                    y -= 1
-                # left
-                elif bond[x // 2, y] and not visited[(x - 1) % n, y]:
-                    x -= 1
-                # bottom
-                elif not bond[x // 2, y] and not visited[x, (y + 1) % t]:
-                    y += 1
-                # right
-                elif bond[x // 2, (y - 1) % t] and not visited[(x + 1) % n, y]:
-                    x += 1
-                # closed loop
-                else:
-                    break
-            elif x % 2 == 0 and y % 2 == 1:
-                # top
-                if not bond[x // 2, (y - 1) % t] and not visited[x, (y - 1) % t]:
-                    y -= 1
-                # left
-                elif bond[(x // 2 - 1) % (n // 2), y] and not visited[(x - 1) % n, y]:
-                    x -= 1
-                # bottom
-                elif not bond[(x // 2 - 1) % (n // 2), y] and not visited[x, (y + 1) % t]:
-                    y += 1
-                # right
-                elif bond[x // 2, (y - 1) % t] and not visited[(x + 1) % n, y]:
-                    x += 1
-                # closed loop
-                else:
-                    break
-            elif x % 2 == 1 and y % 2 == 1:
-                # top
-                if not bond[x // 2, (y - 1) % t] and not visited[x, (y - 1) % t]:
-                    y -= 1
-                # left
-                elif bond[x // 2, (y - 1) % t] and not visited[(x - 1) % n, y]:
-                    x -= 1
-                # bottom
-                elif not bond[x // 2, y] and not visited[x, (y + 1) % t]:
-                    y += 1
-                # right
-                elif bond[x // 2, y] and not visited[(x + 1) % n, y]:
-                    x += 1
-                # closed loop
-                else:
-                    break
-            x = x % n  # boundary conditions
-            y = y % t
+    cluster_ID = 0  # counter for how many clusters there are -1 and the ID given to each of the clusters
+    # Identify all clusters
+    for i, j in product(range(n), range(t)):    # check for a new cluster in all positions
+        if not visited[i, j]:   # if you haven't seen the loop before
+            x = i
+            y = j
+            # Go around a cluster loop
+            loop_closed = False
+            while not loop_closed:
+                cluster[x, y] = cluster_ID   # give cluster its ID
+                visited[x, y] = True    # Save where algorithm has been, so you don't go backwards around the loop
 
-        clusternr += 1
-        full = False
-        for i, j in product(range(n), range(t)):
-            if not visited[i, j]:
-                x = i
-                y = j
-                break
-            if i == n - 1 and j == t - 1:
-                full = True  # if last indices are reached everything has been visited
-        if full:
-            break
+                # update x and y to next position in cluster loop
+                x, y, loop_closed = cluster_loop_step(x, y, visited, n, t)
+
+            # look where to find next cluster
+            cluster_ID += 1
 
 
 
@@ -145,13 +148,13 @@ def main():
     global bond
     global bond_debug
     global cluster
-    n = 16  # number of lattice points
-    t = 8  # number of half timesteps (#even + #odd)
+    n = 30  # number of lattice points
+    t = 18  # number of half timesteps (#even + #odd)
     b = 1   # beta
-    mc_steps = 3   # number of mc steps
+    mc_steps = 1   # number of mc steps
     initial_mc_steps = 5000
-    w_a = 1/2  # np.exp(b/t)  # weight of a plaquettes U = t = 1
-    w_b = 1/2  # np.sinh(b/t)  # weight of b plaquettes
+    w_a = 3/4  # np.exp(b/t)  # weight of a plaquettes U = t = 1
+    w_b = 1/4  # np.sinh(b/t)  # weight of b plaquettes
 
     # fermion lattice initialized to reference configuration
     fermion = np.full((n, t), False)
