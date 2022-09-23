@@ -5,7 +5,6 @@ from PIL import Image, ImageDraw
 
 class MeronAlgorithm:
     def __init__(self, n, t, w_a, w_b, beta, mc_steps):
-
         # constants
         self.n = n
         self.t = t
@@ -239,6 +238,24 @@ class MeronAlgorithm:
             if self.cluster_charge[self.cluster_id[i, 0]] != 0 and not self.cluster_id[i, 0] in charged_cluster_order:
                 charged_cluster_order.append(self.cluster_id[i, 0])
 
+        self.draw_bonds()
+
+        # TODO: Does not work when no charges present because neutrals can wrap horizontally
+        corrected = []
+        visited = np.zeros((self.n, self.t))
+        for j in range(self.t):
+            if not (self.cluster_id[0, j] in corrected) and self.cluster_charge[self.cluster_id[0, j]] == 0:
+                x = 0
+                y = j
+                corrected.append(self.cluster_id[0, j])
+                closed_loop = False
+                while not closed_loop:
+                    x, y, closed_loop, direction = self._cluster_loop_step(x, y, visited)
+                    visited[x, y] = True
+                    if direction == 3 and x == (self.cluster_positions[self.cluster_id[x, y]][0] - 1) % self.n:
+                        self.cluster_positions[self.cluster_id[x, y]] = [x, y]
+
+        # do the charged one
         if len(charged_cluster_order) > 0:
             # correct the top leftmost position of leftmost charged cluster
             x = self.cluster_positions[charged_cluster_order[-1]][0]
@@ -259,12 +276,12 @@ class MeronAlgorithm:
                 visited[x, y] = True
                 if direction == 0:
                     if self.cluster_charge[self.cluster_id[(x-1)%self.n, y]] == 0 and self.cluster_group[self.cluster_id[(x-1)%self.n, y]] == -1:
-                        self.cluster_group[self.cluster_id[(x-1)%self.n, y]] = charged_cluster_order[charged_cluster-1]
+                        self.cluster_group[self.cluster_id[(x-1)%self.n, y]] = charged_cluster_order[charged_cluster - 1]
                     if self.cluster_charge[self.cluster_id[(x+1)%self.n, y]] == 0 and self.cluster_group[self.cluster_id[(x+1)%self.n, y]] == -1:
                         self.cluster_group[self.cluster_id[(x+1)%self.n, y]] = charged_cluster_order[charged_cluster]
                 elif direction == 1:
                     if self.cluster_charge[self.cluster_id[x, (y-1)%self.t]] == 0 and self.cluster_group[self.cluster_id[x, (y-1)%self.t]] == -1:
-                        self.cluster_group[self.cluster_id[x, (y-1)%self.t]] = charged_cluster_order[charged_cluster-1]
+                        self.cluster_group[self.cluster_id[x, (y-1)%self.t]] = charged_cluster_order[charged_cluster - 1]
                     if self.cluster_charge[self.cluster_id[x, (y+1)%self.t]] == 0 and self.cluster_group[self.cluster_id[x, (y+1)%self.t]] == -1:
                         self.cluster_group[self.cluster_id[x, (y+1)%self.t]] = charged_cluster_order[charged_cluster]
                 elif direction == 2:
@@ -276,9 +293,8 @@ class MeronAlgorithm:
                     if self.cluster_charge[self.cluster_id[x, (y-1)%self.t]] == 0 and self.cluster_group[self.cluster_id[x, (y-1)%self.t]] == -1:
                         self.cluster_group[self.cluster_id[x, (y-1)%self.t]] = charged_cluster_order[charged_cluster]
                     if self.cluster_charge[self.cluster_id[x, (y+1)%self.t]] == 0 and self.cluster_group[self.cluster_id[x, (y+1)%self.t]] == -1:
-                        self.cluster_group[self.cluster_id[x, (y+1)%self.t]] = charged_cluster_order[charged_cluster-1]
+                        self.cluster_group[self.cluster_id[x, (y+1)%self.t]] = charged_cluster_order[charged_cluster - 1]
         # create picture for debugging
-        self.draw_bonds()
         print('test')
         self.draw_bonds()
 
@@ -288,12 +304,13 @@ class MeronAlgorithm:
         scale = 40
         image = Image.new("RGB", (scale*self.n + 2, scale*self.t+2), "white")
         draw = ImageDraw.Draw(image)
-        for x in range(self.n):
-            for y in range(self.t):
-                if self.cluster_group[self.cluster_id[x,y]] != -1:
-                    np.random.seed(self.cluster_group[self.cluster_id[x,y]] + 1)
-                    color = tuple(np.append(np.random.choice(range(256), size=3), 127))
-                    draw.rectangle(((x-0.5)*scale, (y-0.5)*scale, (x+0.5)*scale, (y+0.5)*scale), fill=color)
+        if len(self.cluster_group) != 1:
+            for x in range(self.n):
+                for y in range(self.t):
+                    if self.cluster_group[self.cluster_id[x,y]] != -1:
+                        np.random.seed(self.cluster_group[self.cluster_id[x,y]] + 1)
+                        color = tuple(np.append(np.random.choice(range(256), size=3), 127))
+                        draw.rectangle(((x-0.5)*scale, (y-0.5)*scale, (x+0.5)*scale, (y+0.5)*scale), fill=color)
 
         for x in range(self.n):
             for y in range(self.t):
@@ -317,8 +334,8 @@ class MeronAlgorithm:
 
 
 def main():
-    n = 30  # number of lattice points
-    t = 18  # number of half timesteps (#even + #odd)
+    n = 16  # number of lattice points
+    t = 16  # number of half timesteps (#even + #odd)
     beta = 1   # beta
     mc_steps = 1   # number of mc steps
     initial_mc_steps = 5000
