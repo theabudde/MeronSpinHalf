@@ -238,7 +238,7 @@ class MeronAlgorithm:
 
                     # look where to find next cluster
                     cluster_nr += 1
-        self.cluster_nr = cluster_nr + 1
+        self.cluster_nr = cluster_nr
 
     def _group_neighboring_clusters(self, left_group, right_group, x_start, y_start):
         x = x_start
@@ -304,6 +304,14 @@ class MeronAlgorithm:
                                                      self.cluster_positions[self.cluster_id[x, (y + 1) % self.t]][1])
         return marked
 
+    # O(cluster_nr^2) TODO: could probably be done faster
+    def _find_cluster_order(self, cluster_group):
+        self.cluster_order.append(-1)
+        for i in range(self.cluster_nr):
+            if self.cluster_group[i] == cluster_group and i != cluster_group:
+                self.cluster_order.append(i)
+                self._find_cluster_order(i)
+        self.cluster_order.append(-2)
 
     def mc_step(self):
         # reset to reference config
@@ -335,6 +343,8 @@ class MeronAlgorithm:
         self.draw_bonds()
 
         # TODO: Does not work when no charges present because neutrals can wrap horizontally
+        # If they do though, it does not matter which direction is left or right, because they split the whole thing in half.
+        # But the two regions still need separate ID's because one side is inside the horizontal loop the other is outside. What is the outside one called?
         corrected = []
         visited = np.zeros((self.n, self.t))
         for j in range(self.t):
@@ -367,15 +377,55 @@ class MeronAlgorithm:
                                              self.cluster_positions[charged_cluster_order[i]][0],
                                              self.cluster_positions[charged_cluster_order[i]][1])
 
-
-
         # create picture for debugging
         self.draw_bonds()
+
+        # find cluster order recursively
+        for charge in charged_cluster_order:
+            self.cluster_order.append(charge)
+            self._find_cluster_order(charge)
+
+        # adjust brackets corresponding to sign
+        # -1 opens -2 closes charges
+        # -3 opens -4 closes +- loops
+        # -5 opens -6 closes -+ loops
+        current_last_charge = 0
+        for i in range(len(self.cluster_order)):
+            if self.cluster_order[i] == -1:
+                if self.cluster_charge[self.cluster_order[i - 1]] > 0:
+                    current_last_charge = +1
+                elif self.cluster_charge[self.cluster_order[i - 1]] < 0:
+                    current_last_charge = -1
+                else:
+                    self.cluster_order[i] = -4 - current_last_charge
+
+                    # find closing bracket
+                    j = i
+                    loop_openings_counter = 0
+                    while True:
+                        if self.cluster_order[j] == -2:
+                            if loop_openings_counter == 0:
+                                break
+                            else:
+                                loop_openings_counter -= 1
+                        if self.cluster_order[j] == -1:
+                            loop_openings_counter += 1
+                        j += 1
+
+                    self.cluster_order[j] = -5 - current_last_charge
+                    current_last_charge *= -1
+            elif self.cluster_order[i] < 0 and self.cluster_order[i] % 2 == 0:
+                current_last_charge *= -1
+
+        
+
+
+
         print('test')
 
 
 def main():
-    n = 16  # number of lattice points
+    n = 32  # number of lattice points
     t = 16  # number of half timesteps (#even + #odd)
     beta = 1   # beta
     mc_steps = 1   # number of mc steps
