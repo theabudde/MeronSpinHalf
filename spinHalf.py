@@ -1,6 +1,8 @@
 import random
 import numpy as np
 from PIL import Image, ImageDraw
+import matplotlib.pyplot as plt
+from collections import deque
 
 
 class MeronAlgorithm:
@@ -23,6 +25,7 @@ class MeronAlgorithm:
         self.bond = np.full((self.n // 2, self.t),
                             False)  # bond lattice, 0 is vertical plaquette A, 1 is horizontal plaquette B
         self.bond_debug = np.full((self.n, self.t), - 1)  # only for debugging purposes
+        self.cluster_combinations = np.array([0, 0])   # saves the nr of flip possibilites for +- and -+ starting from the corresponding cluster
 
         self._reset()
 
@@ -248,8 +251,8 @@ class MeronAlgorithm:
 
         marked = []
         while not closed_loop:
-            x, y, closed_loop, direction = self._cluster_loop_step(x, y, visited)
             visited[x, y] = True
+            x, y, closed_loop, direction = self._cluster_loop_step(x, y, visited)
             if direction == 0:
                 if self.cluster_charge[self.cluster_id[(x - 1) % self.n, y]] == 0 and self.cluster_group[
                     self.cluster_id[(x - 1) % self.n, y]] == -1:
@@ -313,7 +316,91 @@ class MeronAlgorithm:
                 self._find_cluster_order(i)
         self.cluster_order.append(-2)
 
+    def _evaluate(self, start_index, final_index):
+        if start_index >= final_index:
+            return np.zeros(2)
+        if self.cluster_combinations[start_index + 1, 0] == -3:
+            j = start_index + 2
+            while self.cluster_combinations[j, 0] != -4:
+                j += 1
+            combis = self._evaluate(start_index + 2, j - 1)
+            combis = np.array([combis[0] + combis[1] + 1, combis[1]])
+            self.cluster_combinations[start_index] = combis
+            return (combis + 1) * (self._evaluate(j + 1, final_index) + 1) - 1
+        if self.cluster_combinations[start_index + 1, 0] == -5:
+            j = start_index + 2
+            while self.cluster_combinations[j, 0] != -6:
+                j += 1
+            combis = self._evaluate(start_index + 2, j - 1)
+            combis = np.array([combis[0], combis[0] + combis[1] + 1])
+            self.cluster_combinations[start_index] = combis
+            return (combis + 1) * (self._evaluate(j + 1, final_index) + 1) - 1
+        if self.cluster_combinations[start_index + 1, 0] == -1:
+            j = start_index + 2
+            while self.cluster_combinations[j, 0] != -2:
+                j += 1
+            self._evaluate(start_index + 2, j - 1)
+            self._evaluate(j + 1, final_index)
+
+    def _generate_flips(self):
+        boundary_condition = deque()
+        flip = []
+        i = 0
+        while i < self.cluster_combinations.shape[0]:
+            if self.cluster_combinations[i + 1, 0] == -1:
+                boundary_condition.append(self.cluster_charge[self.cluster_order[i]])
+                i += 2
+            elif self.cluster_combinations[i, 0] == -2:
+                break
+            elif np.array_equal(self.cluster_combinations[i], np.array([1, 0])) and boundary_condition[-1] > 0:
+                flip.append(0)
+                i += 3
+            elif np.array_equal(self.cluster_combinations[i], np.array([1, 0])) and boundary_condition[-1] < 0:
+                flip.append(0 if random.random() < 0.5 else 1)
+                i += 3
+            elif np.array_equal(self.cluster_combinations[i], np.array([0, 1])) and boundary_condition[-1] > 0:
+                flip.append(0 if random.random() < 0.5 else 1)
+                i += 3
+            elif np.array_equal(self.cluster_combinations[i], np.array([0, 1])) and boundary_condition[-1] < 0:
+                flip.append(0)
+                i += 3
+            elif self.cluster_combinations[i + 1, 0] == -3 and boundary_condition[-1] < 0:
+                if random.random() < (self.cluster_combinations[i, 1] +1) / (self.cluster_combinations[i, 0] +1):
+                    flip.append(1)
+                    i += 2
+                    boundary_condition.append(boundary_condition[-1] * -1)
+                else:
+                    flip.append(0)
+                    i += 2
+                    boundary_condition.append(boundary_condition[-1])
+            elif self.cluster_combinations[i + 1, 0] == -3 and boundary_condition[-1] > 0:
+                flip.append(0)
+                i += 2
+                boundary_condition.append(boundary_condition[-1])
+            elif self.cluster_combinations[i + 1, 0] == -5 and boundary_condition[-1] > 0:
+                if random.random() < (self.cluster_combinations[i, 0] +1) / (self.cluster_combinations[i, 1] + 1):
+                    flip.append(1)
+                    i += 2
+                    boundary_condition.append(boundary_condition[-1] * -1)
+                else:
+                    flip.append(0)
+                    i += 2
+                    boundary_condition.append(boundary_condition[-1])
+            elif self.cluster_combinations[i + 1, 0] == -5 and boundary_condition[-1] < 0:
+                flip.append(0)
+                i += 2
+                boundary_condition.append(boundary_condition[-1])
+            # but only if the cluster was actually flipped!
+            elif self.cluster_combinations[i, 0] == -4 or self.cluster_combinations[i, 0] == -6:
+                boundary_condition.pop()
+                i += 1
+        return flip
+
+
+
     def mc_step(self):
+        random.seed(26)
+
         # reset to reference config
         self._reset()
 
@@ -377,8 +464,7 @@ class MeronAlgorithm:
                                              self.cluster_positions[charged_cluster_order[i]][0],
                                              self.cluster_positions[charged_cluster_order[i]][1])
 
-        # create picture for debugging
-        self.draw_bonds()
+
 
         # find cluster order recursively
         for charge in charged_cluster_order:
@@ -417,7 +503,25 @@ class MeronAlgorithm:
             elif self.cluster_order[i] < 0 and self.cluster_order[i] % 2 == 0:
                 current_last_charge *= -1
 
-        
+        # calculate the cluster combinations
+        self.cluster_combinations = np.zeros((len(self.cluster_order), 2))
+        for i in range(len(self.cluster_order)):
+            if self.cluster_order[i] < 0:
+                self.cluster_combinations[i] = self.cluster_order[i] * np.array([1, 1])
+        self._evaluate(0, len(self.cluster_order) - 1)
+
+        # create picture for debugging
+        self.draw_bonds()
+
+        # generate a flip combination with hoomogeneous probability
+        histogram = np.zeros(2**self.cluster_nr)
+        for i in range(1000000):
+            flip = self._generate_flips()
+            if not flip == []:
+                histogram[int("".join(str(k) for k in flip), 2)] += 1
+        plt.plot(histogram[histogram != 0], ".")
+        plt.ylim(bottom=0)
+        plt.show()
 
 
 
@@ -425,7 +529,7 @@ class MeronAlgorithm:
 
 
 def main():
-    n = 32  # number of lattice points
+    n = 24  # number of lattice points
     t = 16  # number of half timesteps (#even + #odd)
     beta = 1   # beta
     mc_steps = 1   # number of mc steps
