@@ -138,10 +138,10 @@ class MeronAlgorithm:
         y = y % self.t
         return x, y, loop_closed, direction
 
-    def tests(self):
-        charge = np.zeros(self.cluster_id.max() + 1)
+    def tests(self, seed):
+        charge = np.zeros(self.cluster_nr + 1)
         for j in range(self.t):
-            for c in range(self.cluster_id.max() + 1):
+            for c in range(self.cluster_nr + 1):
                 rowcharge = 0
                 for i in range(self.n):
                     if self.cluster_id[i, j] == c:
@@ -156,14 +156,14 @@ class MeronAlgorithm:
         if charge.sum() != 0:
             raise ('Total charge not zero')
 
-        if charge.max() > 1:
-            if np.count_nonzero(charge == charge.max()) > 1:
+        if np.amax(charge) > 1:
+            if np.count_nonzero(charge == np.amax(charge)) > 1:
                 print('multiple 2 windings')
             for c in charge:
-                if abs(c) != charge.max() and c != 0:
+                if abs(c) != np.amax(charge) and c != 0:
                     raise ('clusters of different charges mixed')
-        if charge.max() > 1:
-            print(charge.max())
+        if np.amax(charge) > 1:
+            print(np.amax(charge), seed)
 
         for j in range(self.t):
             for i in range(self.n - 2):
@@ -399,7 +399,10 @@ class MeronAlgorithm:
 
 
     def mc_step(self):
-        random.seed(26)
+
+        # for i in range(1000000):
+        seed = 26
+        random.seed(seed)
 
         # reset to reference config
         self._reset()
@@ -411,7 +414,7 @@ class MeronAlgorithm:
         self._find_clusters()
 
         # optional: run tests to verify hypothesis of cluster structure (very slow)
-        self.tests()
+        self.tests(seed)
 
         # determine cluster's charges
         self.cluster_charge = np.zeros(self.cluster_nr)
@@ -527,8 +530,8 @@ class MeronAlgorithm:
 
 
 def main():
-    n = 24  # number of lattice points
-    t = 16  # number of half timesteps (#even + #odd)
+    n = 12  # number of lattice points
+    t = 12  # number of half timesteps (#even + #odd)
     beta = 1   # beta
     mc_steps = 1   # number of mc steps
     initial_mc_steps = 5000
