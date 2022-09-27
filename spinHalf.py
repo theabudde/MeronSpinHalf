@@ -339,7 +339,7 @@ class MeronAlgorithm:
             j = start_index + 2
             while self.cluster_combinations[j, 0] != -2:
                 j += 1
-            self._evaluate(start_index + 2, j - 1)
+            self.cluster_combinations[start_index] = self._evaluate(start_index + 2, j - 1)
             self._evaluate(j + 1, final_index)
 
     def _generate_flips(self):
@@ -464,8 +464,6 @@ class MeronAlgorithm:
                                              self.cluster_positions[charged_cluster_order[i]][0],
                                              self.cluster_positions[charged_cluster_order[i]][1])
 
-
-
         # find cluster order recursively
         for charge in charged_cluster_order:
             self.cluster_order.append(charge)
@@ -515,7 +513,7 @@ class MeronAlgorithm:
 
         # generate a flip combination with hoomogeneous probability
         histogram = np.zeros(2**self.cluster_nr)
-        for i in range(1000000):
+        for i in range(100000):
             flip = self._generate_flips()
             if not flip == []:
                 histogram[int("".join(str(k) for k in flip), 2)] += 1
