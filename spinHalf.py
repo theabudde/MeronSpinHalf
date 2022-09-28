@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
 from collections import deque
+from itertools import product
 
 
 class MeronAlgorithm:
@@ -15,9 +16,9 @@ class MeronAlgorithm:
         self.beta = beta
         self.mc_steps = mc_steps
 
+        self.n_clusters = -1
         self.cluster_positions = []  # top left most position of each cluster in order cluster_id
         self.cluster_charge = np.array([0])  # charge of each cluster in order cluster_id
-        self.cluster_nr = 0  # number of clusters
         self.cluster_group = np.array([0])  # closest charged left neighbor of every neutral cluster
         self.cluster_order = []  # order of clusters for automaton to be able to process
         self.fermion = np.full((self.n, self.t), False)
@@ -26,17 +27,18 @@ class MeronAlgorithm:
                             False)  # bond lattice, 0 is vertical plaquette A, 1 is horizontal plaquette B
         self.bond_debug = np.full((self.n, self.t), - 1)  # only for debugging purposes
         self.cluster_combinations = np.array([0, 0])   # saves the nr of flip possibilites for +- and -+ starting from the corresponding cluster
+        self.charged_cluster_order = []     # order of charged clusters only
 
         self._reset()
+
 
     # reset to reference config
     def _reset(self):
         self.cluster_positions = []  # top left most position of each cluster in order cluster_id
         self.cluster_charge = np.array([0])  # charge of each cluster in order cluster_id
-        self.cluster_nr = 0  # number of clusters
         self.cluster_group = np.array([0])  # closest charged left neighbor of every neutral cluster
         self.cluster_order = []  # order of clusters for automaton to be able to process
-
+        self.charged_cluster_order = []
         # fermion lattice initialized to reference configuration
         self.fermion = np.full((self.n, self.t), False)
         for i in range(self.n // 2):
@@ -139,9 +141,9 @@ class MeronAlgorithm:
         return x, y, loop_closed, direction
 
     def tests(self, seed):
-        charge = np.zeros(self.cluster_nr + 1)
+        charge = np.zeros(self.n_clusters + 1)
         for j in range(self.t):
-            for c in range(self.cluster_nr + 1):
+            for c in range(self.n_clusters + 1):
                 rowcharge = 0
                 for i in range(self.n):
                     if self.cluster_id[i, j] == c:
@@ -172,51 +174,55 @@ class MeronAlgorithm:
 
     # Places vertical and horizontal bonds with probability corresponding to wa_ and  w_b
     def _bond_assignment(self):
-        for x in range(self.n):
-            for y in range(self.t):
-                if y % 2 != x % 2:
-                    continue
-                # all occupied or all unoccupied
-                if self.fermion[x, y] == self.fermion[(x + 1) % self.n, y] and self.fermion[x, (y + 1) % self.t] == self.fermion[(x + 1) % self.n, (y + 1) % self.t]:
-                    self.bond[x // 2, y] = False
-                # diagonal occupation
-                elif self.fermion[x, y] != self.fermion[x, (y + 1) % self.t]:
-                    self.bond[x // 2, y] = True
-                # parallel occupation
-                else:
-                    self.bond[x // 2, y] = False if random.random() < self.w_a / (self.w_a + self.w_b) else True
-                # calculate bond config in nicer lattice for debugging purposes
-                self.bond_debug[x, y] = self.bond[x // 2, y]
+        for x, y in product(range(self.n), range(self.t)):
+            if y % 2 != x % 2:
+                continue
+            # all occupied or all unoccupied
+            if self.fermion[x, y] == self.fermion[(x + 1) % self.n, y] \
+                    and self.fermion[x, (y + 1) % self.t] == self.fermion[(x + 1) % self.n, (y + 1) % self.t]:
+                self.bond[x // 2, y] = False
+            # diagonal occupation
+            elif self.fermion[x, y] != self.fermion[x, (y + 1) % self.t]:
+                self.bond[x // 2, y] = True
+            # parallel occupation
+            else:
+                self.bond[x // 2, y] = False if random.random() < self.w_a / (self.w_a + self.w_b) else True
+            # calculate bond config in nicer lattice for debugging purposes
+            self.bond_debug[x, y] = self.bond[x // 2, y]
+
+
+    def _get_random_color(self, index):
+        np.random.seed(index)
+        color = tuple(np.append(np.random.choice(range(256), size=3), 127))
+        return color
+
 
     def draw_bonds(self):
         scale = 40
         image = Image.new("RGB", (scale*self.n + 2, scale*self.t+2), "white")
         draw = ImageDraw.Draw(image)
         if len(self.cluster_group) != 1:
-            for x in range(self.n):
-                for y in range(self.t):
-                    if self.cluster_group[self.cluster_id[x,y]] != -1:
-                        np.random.seed(self.cluster_group[self.cluster_id[x,y]] + 1)
-                        color = tuple(np.append(np.random.choice(range(256), size=3), 127))
-                        draw.rectangle(((x-0.5)*scale, (y-0.5)*scale, (x+0.5)*scale, (y+0.5)*scale), fill=color)
+            for x, y in product(range(self.n), range(self.t)):
+                if self.cluster_group[self.cluster_id[x, y]] != -1:
+                    color = self._get_random_color(self.cluster_group[self.cluster_id[x, y]])
+                    draw.rectangle(((x-0.5)*scale, (y-0.5)*scale, (x+0.5)*scale, (y+0.5)*scale),
+                                   fill=color)
 
-        for x in range(self.n):
-            for y in range(self.t):
-                if self.bond_debug[x, y] == 1:
-                    draw.line([(x*scale, y*scale), ((x+1) * scale, y * scale)], width=scale//10, fill="green", joint="curve")
-                    draw.line([(x*scale, (y+1)*scale), ((x+1) * scale, (y+1) * scale)], width=scale//10, fill="green", joint="curve")
-                elif self.bond_debug[x, y] == 0:
-                    draw.line([(x * scale, y * scale), (x * scale, (y+1) * scale)], width=scale // 10, fill="green",
-                              joint="curve")
-                    draw.line([((x+1) * scale, y * scale), ((x + 1) * scale, (y + 1) * scale)], width=scale // 10,
-                              fill="green", joint="curve")
-                np.random.seed(self.cluster_id[x, y] + 30)
-                color = tuple(np.random.choice(range(256), size=3))
-                draw.ellipse((x*scale - 10, y*scale-10, x*scale+10, y*scale+10), fill=color, outline='black')
-                if x % 2:
-                    draw.text((x*scale-4, y*scale-4), "+", fill=(0, 0, 0))
-                else:
-                    draw.text((x*scale-4, y*scale-4), "-", fill=(0, 0, 0))
+        for x, y in product(range(self.n), range(self.t)):
+            if self.bond_debug[x, y] == 1:
+                draw.line([(x*scale, y*scale), ((x+1) * scale, y * scale)], width=scale//10, fill="green", joint="curve")
+                draw.line([(x*scale, (y+1)*scale), ((x+1) * scale, (y+1) * scale)], width=scale//10, fill="green", joint="curve")
+            elif self.bond_debug[x, y] == 0:
+                draw.line([(x * scale, y * scale), (x * scale, (y+1) * scale)], width=scale // 10, fill="green",
+                          joint="curve")
+                draw.line([((x+1) * scale, y * scale), ((x + 1) * scale, (y + 1) * scale)], width=scale // 10,
+                          fill="green", joint="curve")
+            color = self._get_random_color(self.cluster_id[x, y])
+            draw.ellipse((x*scale - 10, y*scale-10, x*scale+10, y*scale+10), fill=color, outline='black')
+            if x % 2:
+                draw.text((x*scale-4, y*scale-4), "+", fill=(0, 0, 0))
+            else:
+                draw.text((x*scale-4, y*scale-4), "-", fill=(0, 0, 0))
 
         image.save("config.jpg")
 
@@ -224,24 +230,23 @@ class MeronAlgorithm:
         visited = np.full((self.n, self.t), False)  # record if site has been visited
         cluster_nr = 0  # counter for how many clusters there are -1 and the ID given to each of the clusters
         self.cluster_positions = []  # keeps one position of the cluster in order of cluster_id
-        for j in range(self.t):
-            for i in range(self.n):
-                if not visited[i, j]:  # if you haven't seen the loop before
-                    x = i
-                    y = j
-                    self.cluster_positions.append([x, y])
-                    # Go around a cluster loop
-                    loop_closed = False
-                    while not loop_closed:
-                        self.cluster_id[x, y] = cluster_nr  # give cluster its ID
-                        visited[x, y] = True  # Save where algorithm has been, so you don't go backwards around the loop
+        for j, i in product(range(self.t), range(self.n)):
+            if not visited[i, j]:  # if you haven't seen the loop before
+                x = i
+                y = j
+                self.cluster_positions.append([x, y])
+                # Go around a cluster loop
+                loop_closed = False
+                while not loop_closed:
+                    self.cluster_id[x, y] = cluster_nr  # give cluster its ID
+                    visited[x, y] = True  # Save where algorithm has been, so you don't go backwards around the loop
 
-                        # update x and y to next position in cluster loop
-                        x, y, loop_closed, direction = self._cluster_loop_step(x, y, visited)
+                    # update x and y to next position in cluster loop
+                    x, y, loop_closed, direction = self._cluster_loop_step(x, y, visited)
 
-                    # look where to find next cluster
-                    cluster_nr += 1
-        self.cluster_nr = cluster_nr
+                # look where to find next cluster
+                cluster_nr += 1
+        self.n_clusters = cluster_nr + 1
 
     def _group_neighboring_clusters(self, left_group, right_group, x_start, y_start):
         x = x_start
@@ -310,7 +315,7 @@ class MeronAlgorithm:
     # O(cluster_nr^2) TODO: could probably be done faster
     def _find_cluster_order(self, cluster_group):
         self.cluster_order.append(-1)
-        for i in range(self.cluster_nr):
+        for i in range(self.n_clusters):
             if self.cluster_group[i] == cluster_group and i != cluster_group:
                 self.cluster_order.append(i)
                 self._find_cluster_order(i)
@@ -400,8 +405,8 @@ class MeronAlgorithm:
 
     def mc_step(self):
 
-        # for i in range(1000000):
-        seed = 26
+        seed = 3
+        #for seed in range(0,10000):
         random.seed(seed)
 
         # reset to reference config
@@ -413,11 +418,14 @@ class MeronAlgorithm:
         # find clusters
         self._find_clusters()
 
+        # draw config for debug
+        self.draw_bonds()
+
         # optional: run tests to verify hypothesis of cluster structure (very slow)
-        self.tests(seed)
+        #self.tests(seed)
 
         # determine cluster's charges
-        self.cluster_charge = np.zeros(self.cluster_nr)
+        self.cluster_charge = np.zeros(self.n_clusters)
         for i in range(self.n):
             if i % 2:
                 self.cluster_charge[self.cluster_id[i, 0]] += 1
@@ -425,16 +433,11 @@ class MeronAlgorithm:
                 self.cluster_charge[self.cluster_id[i, 0]] -= 1
 
         # determine order of charged clusters
-        charged_cluster_order = []
         for i in range(self.n):
-            if self.cluster_charge[self.cluster_id[i, 0]] != 0 and not self.cluster_id[i, 0] in charged_cluster_order:
-                charged_cluster_order.append(self.cluster_id[i, 0])
+            if self.cluster_charge[self.cluster_id[i, 0]] != 0 and not self.cluster_id[i, 0] in self.charged_cluster_order:
+                self.charged_cluster_order.append(self.cluster_id[i, 0])
 
-        self.draw_bonds()
 
-        # TODO: Does not work when no charges present because neutrals can wrap horizontally
-        # If they do though, it does not matter which direction is left or right, because they split the whole thing in half.
-        # But the two regions still need separate ID's because one side is inside the horizontal loop the other is outside. What is the outside one called?
         corrected = []
         visited = np.zeros((self.n, self.t))
         for j in range(self.t):
@@ -449,28 +452,40 @@ class MeronAlgorithm:
                     if direction == 3 and x == (self.cluster_positions[self.cluster_id[x, y]][0] - 1) % self.n:
                         self.cluster_positions[self.cluster_id[x, y]] = [x, y]
 
-        # correct the charged one that is closest from the left to [0,0]
-        if len(charged_cluster_order) > 0:
+            # correct the charged one that is closest from the left to [0,0]
+        if len(self.charged_cluster_order) > 0:
             # correct the top leftmost position of leftmost charged cluster
-            x = self.cluster_positions[charged_cluster_order[-1]][0]
-            while self.cluster_id[x, 0] != charged_cluster_order[0]:
+            x = self.cluster_positions[self.charged_cluster_order[-1]][0]
+            while self.cluster_id[x, 0] != self.charged_cluster_order[0]:
                 x = (x+1) % self.n
-            self.cluster_positions[charged_cluster_order[0]][0] = x
+            self.cluster_positions[self.charged_cluster_order[0]][0] = x
 
-        # go around charged clusters and identify neutral clusters to the left and right
-        self.cluster_group = np.full(self.cluster_nr, -1)
-        for charge in charged_cluster_order:
-            self.cluster_group[charge] = charge
-        # recursive identification of nearest left charge or surrounding cluster for all neutral clusters
-        for i in range(len(charged_cluster_order)):
-            self._group_neighboring_clusters(charged_cluster_order[i-1], charged_cluster_order[i],
-                                             self.cluster_positions[charged_cluster_order[i]][0],
-                                             self.cluster_positions[charged_cluster_order[i]][1])
+            # associate all charges to their own group
+            self.cluster_group = np.full(self.n_clusters, -1)
+            for charge in self.charged_cluster_order:
+                self.cluster_group[charge] = charge
 
-        # find cluster order recursively
-        for charge in charged_cluster_order:
-            self.cluster_order.append(charge)
-            self._find_cluster_order(charge)
+            # recursive identification of nearest left charge or surrounding cluster for all neutral clusters
+            for i in range(len(self.charged_cluster_order)):
+                self._group_neighboring_clusters(self.charged_cluster_order[i-1], self.charged_cluster_order[i],
+                                                 self.cluster_positions[self.charged_cluster_order[i]][0],
+                                                 self.cluster_positions[self.charged_cluster_order[i]][1])
+
+            # find cluster order recursively
+            for charge in self.charged_cluster_order:
+                self.cluster_order.append(charge)
+                self._find_cluster_order(charge)
+        else:
+
+            for i in range(1, self.n_clusters):
+                cluster_in_first_column = False
+                for y in range(self.t):
+                    if self.cluster_id[0, y] == i:
+                        cluster_in_first_column = True
+                if not cluster_in_first_column:
+                    innermost_cluster = i
+                    break
+
 
         # adjust brackets corresponding to sign
         # -1 opens -2 closes charges
@@ -515,7 +530,7 @@ class MeronAlgorithm:
         self.draw_bonds()
 
         # generate a flip combination with hoomogeneous probability
-        histogram = np.zeros(2**self.cluster_nr)
+        histogram = np.zeros(2 ** self.n_clusters)
         for i in range(100000):
             flip = self._generate_flips()
             if not flip == []:
@@ -530,8 +545,8 @@ class MeronAlgorithm:
 
 
 def main():
-    n = 12  # number of lattice points
-    t = 12  # number of half timesteps (#even + #odd)
+    n = 16  # number of lattice points
+    t = 16  # number of half timesteps (#even + #odd)
     beta = 1   # beta
     mc_steps = 1   # number of mc steps
     initial_mc_steps = 5000
