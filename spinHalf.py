@@ -26,11 +26,11 @@ class MeronAlgorithm:
         self.bond = np.full((self.n // 2, self.t),
                             False)  # bond lattice, 0 is vertical plaquette A, 1 is horizontal plaquette B
         self.bond_debug = np.full((self.n, self.t), - 1)  # only for debugging purposes
-        self.cluster_combinations = np.array([0, 0])   # saves the nr of flip possibilites for +- and -+ starting from the corresponding cluster
-        self.charged_cluster_order = []     # order of charged clusters only
+        self.cluster_combinations = np.array(
+            [0, 0])  # saves the nr of flip possibilites for +- and -+ starting from the corresponding cluster
+        self.charged_cluster_order = []  # order of charged clusters only
 
         self._reset()
-
 
     # reset to reference config
     def _reset(self):
@@ -169,7 +169,8 @@ class MeronAlgorithm:
 
         for j in range(self.t):
             for i in range(self.n - 2):
-                if self.cluster_id[i, j] != self.cluster_id[i + 1, j] and abs(charge[self.cluster_id[i, j]]) == abs(charge[self.cluster_id[i + 1, j]]) == 1:
+                if self.cluster_id[i, j] != self.cluster_id[i + 1, j] and abs(charge[self.cluster_id[i, j]]) == abs(
+                        charge[self.cluster_id[i + 1, j]]) == 1:
                     assert (charge[self.cluster_id[i, j]] != charge[self.cluster_id[i + 1, j]])
 
     # Places vertical and horizontal bonds with probability corresponding to wa_ and  w_b
@@ -190,39 +191,40 @@ class MeronAlgorithm:
             # calculate bond config in nicer lattice for debugging purposes
             self.bond_debug[x, y] = self.bond[x // 2, y]
 
-
     def _get_random_color(self, index):
         np.random.seed(index)
         color = tuple(np.append(np.random.choice(range(256), size=3), 127))
         return color
 
-
     def draw_bonds(self):
         scale = 40
-        image = Image.new("RGB", (scale*self.n + 2, scale*self.t+2), "white")
+        image = Image.new("RGB", (scale * self.n + 2, scale * self.t + 2), "white")
         draw = ImageDraw.Draw(image)
+        # TODO: also for neutrals when implemented
         if len(self.cluster_group) != 1:
             for x, y in product(range(self.n), range(self.t)):
-                if self.cluster_group[self.cluster_id[x, y]] != -1:
-                    color = self._get_random_color(self.cluster_group[self.cluster_id[x, y]])
-                    draw.rectangle(((x-0.5)*scale, (y-0.5)*scale, (x+0.5)*scale, (y+0.5)*scale),
-                                   fill=color)
+                color = self._get_random_color(self.cluster_group[self.cluster_id[x, y]])
+                draw.rectangle(((x - 0.5) * scale, (y - 0.5) * scale, (x + 0.5) * scale, (y + 0.5) * scale),
+                               fill=color)
 
         for x, y in product(range(self.n), range(self.t)):
+            # TODO: don't use debug
             if self.bond_debug[x, y] == 1:
-                draw.line([(x*scale, y*scale), ((x+1) * scale, y * scale)], width=scale//10, fill="green", joint="curve")
-                draw.line([(x*scale, (y+1)*scale), ((x+1) * scale, (y+1) * scale)], width=scale//10, fill="green", joint="curve")
-            elif self.bond_debug[x, y] == 0:
-                draw.line([(x * scale, y * scale), (x * scale, (y+1) * scale)], width=scale // 10, fill="green",
+                draw.line([(x * scale, y * scale), ((x + 1) * scale, y * scale)], width=scale // 10, fill="green",
                           joint="curve")
-                draw.line([((x+1) * scale, y * scale), ((x + 1) * scale, (y + 1) * scale)], width=scale // 10,
+                draw.line([(x * scale, (y + 1) * scale), ((x + 1) * scale, (y + 1) * scale)], width=scale // 10,
+                          fill="green", joint="curve")
+            elif self.bond_debug[x, y] == 0:
+                draw.line([(x * scale, y * scale), (x * scale, (y + 1) * scale)], width=scale // 10, fill="green",
+                          joint="curve")
+                draw.line([((x + 1) * scale, y * scale), ((x + 1) * scale, (y + 1) * scale)], width=scale // 10,
                           fill="green", joint="curve")
             color = self._get_random_color(self.cluster_id[x, y])
-            draw.ellipse((x*scale - 10, y*scale-10, x*scale+10, y*scale+10), fill=color, outline='black')
+            draw.ellipse((x * scale - 10, y * scale - 10, x * scale + 10, y * scale + 10), fill=color, outline='black')
             if x % 2:
-                draw.text((x*scale-4, y*scale-4), "+", fill=(0, 0, 0))
+                draw.text((x * scale - 4, y * scale - 4), "+", fill=(0, 0, 0))
             else:
-                draw.text((x*scale-4, y*scale-4), "-", fill=(0, 0, 0))
+                draw.text((x * scale - 4, y * scale - 4), "-", fill=(0, 0, 0))
 
         image.save("config.jpg")
 
@@ -240,7 +242,6 @@ class MeronAlgorithm:
                 while not loop_closed:
                     self.cluster_id[x, y] = cluster_nr  # give cluster its ID
                     visited[x, y] = True  # Save where algorithm has been, so you don't go backwards around the loop
-
                     # update x and y to next position in cluster loop
                     x, y, loop_closed, direction = self._cluster_loop_step(x, y, visited)
 
@@ -370,7 +371,7 @@ class MeronAlgorithm:
                 flip.append(0)
                 i += 3
             elif self.cluster_combinations[i + 1, 0] == -3 and boundary_condition[-1] < 0:
-                if random.random() < (self.cluster_combinations[i, 1] +1) / (self.cluster_combinations[i, 0] +1):
+                if random.random() < (self.cluster_combinations[i, 1] + 1) / (self.cluster_combinations[i, 0] + 1):
                     flip.append(1)
                     i += 2
                     boundary_condition.append(boundary_condition[-1] * -1)
@@ -383,7 +384,7 @@ class MeronAlgorithm:
                 i += 2
                 boundary_condition.append(boundary_condition[-1])
             elif self.cluster_combinations[i + 1, 0] == -5 and boundary_condition[-1] > 0:
-                if random.random() < (self.cluster_combinations[i, 0] +1) / (self.cluster_combinations[i, 1] + 1):
+                if random.random() < (self.cluster_combinations[i, 0] + 1) / (self.cluster_combinations[i, 1] + 1):
                     flip.append(1)
                     i += 2
                     boundary_condition.append(boundary_condition[-1] * -1)
@@ -401,12 +402,10 @@ class MeronAlgorithm:
                 i += 1
         return flip
 
-
-
     def mc_step(self):
 
         seed = 3
-        #for seed in range(0,10000):
+        # for seed in range(0,10000):
         random.seed(seed)
 
         # reset to reference config
@@ -422,7 +421,7 @@ class MeronAlgorithm:
         self.draw_bonds()
 
         # optional: run tests to verify hypothesis of cluster structure (very slow)
-        #self.tests(seed)
+        # self.tests(seed)
 
         # determine cluster's charges
         self.cluster_charge = np.zeros(self.n_clusters)
@@ -434,9 +433,9 @@ class MeronAlgorithm:
 
         # determine order of charged clusters
         for i in range(self.n):
-            if self.cluster_charge[self.cluster_id[i, 0]] != 0 and not self.cluster_id[i, 0] in self.charged_cluster_order:
+            if self.cluster_charge[self.cluster_id[i, 0]] != 0 and not self.cluster_id[
+                                                                           i, 0] in self.charged_cluster_order:
                 self.charged_cluster_order.append(self.cluster_id[i, 0])
-
 
         corrected = []
         visited = np.zeros((self.n, self.t))
@@ -457,7 +456,7 @@ class MeronAlgorithm:
             # correct the top leftmost position of leftmost charged cluster
             x = self.cluster_positions[self.charged_cluster_order[-1]][0]
             while self.cluster_id[x, 0] != self.charged_cluster_order[0]:
-                x = (x+1) % self.n
+                x = (x + 1) % self.n
             self.cluster_positions[self.charged_cluster_order[0]][0] = x
 
             # associate all charges to their own group
@@ -467,7 +466,7 @@ class MeronAlgorithm:
 
             # recursive identification of nearest left charge or surrounding cluster for all neutral clusters
             for i in range(len(self.charged_cluster_order)):
-                self._group_neighboring_clusters(self.charged_cluster_order[i-1], self.charged_cluster_order[i],
+                self._group_neighboring_clusters(self.charged_cluster_order[i - 1], self.charged_cluster_order[i],
                                                  self.cluster_positions[self.charged_cluster_order[i]][0],
                                                  self.cluster_positions[self.charged_cluster_order[i]][1])
 
@@ -485,7 +484,6 @@ class MeronAlgorithm:
                 if not cluster_in_first_column:
                     innermost_cluster = i
                     break
-
 
         # adjust brackets corresponding to sign
         # -1 opens -2 closes charges
@@ -539,19 +537,17 @@ class MeronAlgorithm:
         plt.ylim(bottom=0)
         plt.show()
 
-
-
         print('test')
 
 
 def main():
     n = 16  # number of lattice points
     t = 16  # number of half timesteps (#even + #odd)
-    beta = 1   # beta
-    mc_steps = 1   # number of mc steps
+    beta = 1  # beta
+    mc_steps = 1  # number of mc steps
     initial_mc_steps = 5000
-    w_a = 3/4  # np.exp(b/t)  # weight of a plaquettes U = t = 1
-    w_b = 1/4  # np.sinh(b/t)  # weight of b plaquettes
+    w_a = 3 / 4  # np.exp(b/t)  # weight of a plaquettes U = t = 1
+    w_b = 1 / 4  # np.sinh(b/t)  # weight of b plaquettes
 
     Algorithm = MeronAlgorithm(n, t, w_a, w_b, beta, mc_steps)
 
