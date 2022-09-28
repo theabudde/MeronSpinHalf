@@ -17,131 +17,90 @@ class MeronAlgorithm:
         self.mc_steps = mc_steps
 
         self.n_clusters = -1
-        self.cluster_positions = {}  # top left most position of each cluster
-        self.cluster_charge = np.array([0])  # charge of each cluster in order cluster_id
-        self.cluster_group = np.array([0])  # closest charged left neighbor of every neutral cluster
-        self.cluster_order = []  # order of clusters for automaton to be able to process
+        # top left most position of each cluster
+        self.cluster_positions = {}
+        # charge of each cluster in order cluster_id
+        self.cluster_charge = np.array([0])
+        # closest charged left neighbor of every neutral cluster
+        self.cluster_group = np.array([0])
+        # order of clusters for automaton to be able to process
+        self.cluster_order = []
         self.fermion = np.full((self.n, self.t), False)
         self.cluster_id = np.full((self.n, self.t), -1)
-        self.bond = np.full((self.n // 2, self.t),
-                            False)  # bond lattice, 0 is vertical plaquette A, 1 is horizontal plaquette B
-        self.bond_debug = np.full((self.n, self.t), - 1)  # only for debugging purposes
-        self.cluster_combinations = np.array(
-            [0, 0])  # saves the nr of flip possibilites for +- and -+ starting from the corresponding cluster
-        self.charged_cluster_order = []  # order of charged clusters only
-
-        self._reset()
-
-    # reset to reference config
-    def _reset(self):
-        self.cluster_positions = {}  # top left most position of each cluster in order cluster_id
-        self.cluster_charge = np.array([0])  # charge of each cluster in order cluster_id
-        self.cluster_group = np.array([0])  # closest charged left neighbor of every neutral cluster
-        self.cluster_order = []  # order of clusters for automaton to be able to process
+        # bond lattice, 0 is vertical plaquette A, 1 is horizontal plaquette B
+        self.bond = np.full((self.n, self.t), - 1)  # only for debugging purposes
+        # saves the nr of flip possibilites for +- and -+ starting from the corresponding cluster
+        self.cluster_combinations = np.array([0, 0])
+        # order of charged clusters only
         self.charged_cluster_order = []
+
         # fermion lattice initialized to reference configuration
         self.fermion = np.full((self.n, self.t), False)
         for i in range(self.n // 2):
             for j in range(self.t):
                 self.fermion[2 * i, j] = True
 
-        self.cluster_id = np.full((self.n, self.t), -1)
-
-        # bond lattice is squashed down and initalized to vertical plaquettes
-        self.bond = np.full((self.n // 2, self.t),
-                            False)  # bond lattice, 0 is vertical plaquette A, 1 is horizontal plaquette B
-
-        self.bond_debug = np.full((self.n, self.t), - 1)  # only for debugging purposes
+    # todo more efficient way to save bond
+    # this in init: self._bond = np.full((self.n // 2, self.t), -1)
+    # @property
+    # def bond(self):
+    #     class Bond:
+    #         def __getitem__(slf, item):
+    #             return self._bond[item[0] // 2, item[1]]
+    #
+    #         def __setitem__(slf, key, value):
+    #             self._bond[key[0] // 2, key[1]] = value
+    #
+    #     return Bond()
 
     def _cluster_loop_step(self, x, y, visited):
         loop_closed = False
+
         up = 0
         right = 1
         down = 2
         left = 3
+
         direction = -1
-        coord_up_left = (x - 1) % self.n, (y - 1) % self.t
-        coord_down_left = (x - 1) % self.n, (y + 1) % self.t
-        coord_down_right = (x + 1) % self.n, (y + 1) % self.t
-        coord_up_right = (x + 1) % self.n, (y - 1) % self.t
-        if x % 2 == 0 and y % 2 == 0:
-            # top
-            if not self.bond[(x // 2 - 1) % (self.n // 2), (y - 1) % self.t] and not visited[x, (y - 1) % self.t]:
+
+        coord_bond_up_left = (x - 1) % self.n, (y - 1) % self.t
+        coord_bond_down_left = (x - 1) % self.n, y % self.t
+        coord_bond_down_right = x % self.n, y % self.t
+        coord_bond_up_right = x % self.n, (y - 1) % self.t
+
+        coord_up = x, (y - 1) % self.t
+        coord_right = (x + 1) % self.n, y
+        coord_down = x, (y + 1) % self.t
+        coord_left = (x - 1) % self.n, y
+
+        if (x % 2 == 0 and y % 2 == 0) or (x % 2 == 1 and y % 2 == 1):
+            if not self.bond[coord_bond_up_left] and not visited[coord_up]:
                 y -= 1
                 direction = up
-            # right
-            elif self.bond[x // 2, y] and not visited[(x + 1) % self.n, y]:
+            elif self.bond[coord_bond_down_right] and not visited[coord_right]:
                 x += 1
                 direction = right
-            # bottom
-            elif not self.bond[x // 2, y] and not visited[x, (y + 1) % self.t]:
+            elif not self.bond[coord_bond_down_right] and not visited[coord_down]:
                 y += 1
                 direction = down
-            # left
-            elif self.bond[(x // 2 - 1) % (self.n // 2), (y - 1) % self.t] and not visited[(x - 1) % self.n, y]:
+            elif self.bond[coord_bond_up_left] and not visited[coord_left]:
                 x -= 1
                 direction = left
-            # closed loop
             else:
                 loop_closed = True
-        elif x % 2 == 1 and y % 2 == 0:
-            # top
-            if not self.bond[x // 2, (y - 1) % self.t] and not visited[x, (y - 1) % self.t]:
+        elif (x % 2 == 1 and y % 2 == 0) or (x % 2 == 0 and y % 2 == 1):
+            if not self.bond[coord_bond_up_right] and not visited[coord_up]:
                 y -= 1
                 direction = up
-            # right
-            elif self.bond[x // 2, (y - 1) % self.t] and not visited[(x + 1) % self.n, y]:
+            elif self.bond[coord_bond_up_right] and not visited[coord_right]:
                 x += 1
                 direction = right
-            # bottom
-            elif not self.bond[x // 2, y] and not visited[x, (y + 1) % self.t]:
+            elif not self.bond[coord_bond_down_left] and not visited[coord_down]:
                 y += 1
                 direction = down
-            # left
-            elif self.bond[x // 2, y] and not visited[(x - 1) % self.n, y]:
+            elif self.bond[coord_bond_down_left] and not visited[coord_left]:
                 x -= 1
                 direction = left
-            # closed loop
-            else:
-                loop_closed = True
-        elif x % 2 == 0 and y % 2 == 1:
-            # top
-            if not self.bond[x // 2, (y - 1) % self.t] and not visited[x, (y - 1) % self.t]:
-                y -= 1
-                direction = up
-            # right
-            elif self.bond[x // 2, (y - 1) % self.t] and not visited[(x + 1) % self.n, y]:
-                x += 1
-                direction = right
-            # bottom
-            elif not self.bond[(x // 2 - 1) % (self.n // 2), y] and not visited[x, (y + 1) % self.t]:
-                y += 1
-                direction = down
-            # left
-            elif self.bond[(x // 2 - 1) % (self.n // 2), y] and not visited[(x - 1) % self.n, y]:
-                x -= 1
-                direction = left
-            # closed loop
-            else:
-                loop_closed = True
-        elif x % 2 == 1 and y % 2 == 1:
-            # top
-            if not self.bond[x // 2, (y - 1) % self.t] and not visited[x, (y - 1) % self.t]:
-                y -= 1
-                direction = up
-            # right
-            elif self.bond[x // 2, y] and not visited[(x + 1) % self.n, y]:
-                x += 1
-                direction = right
-            # bottom
-            elif not self.bond[x // 2, y] and not visited[x, (y + 1) % self.t]:
-                y += 1
-                direction = down
-            # left
-            elif self.bond[x // 2, (y - 1) % self.t] and not visited[(x - 1) % self.n, y]:
-                x -= 1
-                direction = left
-            # closed loop
             else:
                 loop_closed = True
         x = x % self.n  # boundary conditions
@@ -189,15 +148,13 @@ class MeronAlgorithm:
             # all occupied or all unoccupied
             if self.fermion[x, y] == self.fermion[(x + 1) % self.n, y] \
                     and self.fermion[x, (y + 1) % self.t] == self.fermion[(x + 1) % self.n, (y + 1) % self.t]:
-                self.bond[x // 2, y] = False
+                self.bond[x, y] = False
             # diagonal occupation
             elif self.fermion[x, y] != self.fermion[x, (y + 1) % self.t]:
-                self.bond[x // 2, y] = True
+                self.bond[x, y] = True
             # parallel occupation
             else:
-                self.bond[x // 2, y] = False if random.random() < self.w_a / (self.w_a + self.w_b) else True
-            # calculate bond config in nicer lattice for debugging purposes
-            self.bond_debug[x, y] = self.bond[x // 2, y]
+                self.bond[x, y] = False if random.random() < self.w_a / (self.w_a + self.w_b) else True
 
     def _get_random_color(self, index):
         np.random.seed(index)
@@ -217,12 +174,12 @@ class MeronAlgorithm:
 
         for x, y in product(range(self.n), range(self.t)):
             # TODO: don't use debug
-            if self.bond_debug[x, y] == 1:
+            if self.bond[x, y] == 1:
                 draw.line([(x * scale, y * scale), ((x + 1) * scale, y * scale)], width=scale // 10, fill="green",
                           joint="curve")
                 draw.line([(x * scale, (y + 1) * scale), ((x + 1) * scale, (y + 1) * scale)], width=scale // 10,
                           fill="green", joint="curve")
-            elif self.bond_debug[x, y] == 0:
+            elif self.bond[x, y] == 0:
                 draw.line([(x * scale, y * scale), (x * scale, (y + 1) * scale)], width=scale // 10, fill="green",
                           joint="curve")
                 draw.line([((x + 1) * scale, y * scale), ((x + 1) * scale, (y + 1) * scale)], width=scale // 10,
@@ -418,7 +375,7 @@ class MeronAlgorithm:
         random.seed(seed)
 
         # reset to reference config
-        self._reset()
+        # self._reset()
 
         # place new bonds
         self._bond_assignment()
