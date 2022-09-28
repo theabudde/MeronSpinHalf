@@ -17,7 +17,7 @@ class MeronAlgorithm:
         self.mc_steps = mc_steps
 
         self.n_clusters = -1
-        self.cluster_positions = []  # top left most position of each cluster in order cluster_id
+        self.cluster_positions = {}  # top left most position of each cluster
         self.cluster_charge = np.array([0])  # charge of each cluster in order cluster_id
         self.cluster_group = np.array([0])  # closest charged left neighbor of every neutral cluster
         self.cluster_order = []  # order of clusters for automaton to be able to process
@@ -34,7 +34,7 @@ class MeronAlgorithm:
 
     # reset to reference config
     def _reset(self):
-        self.cluster_positions = []  # top left most position of each cluster in order cluster_id
+        self.cluster_positions = {}  # top left most position of each cluster in order cluster_id
         self.cluster_charge = np.array([0])  # charge of each cluster in order cluster_id
         self.cluster_group = np.array([0])  # closest charged left neighbor of every neutral cluster
         self.cluster_order = []  # order of clusters for automaton to be able to process
@@ -55,24 +55,32 @@ class MeronAlgorithm:
 
     def _cluster_loop_step(self, x, y, visited):
         loop_closed = False
+        up = 0
+        right = 1
+        down = 2
+        left = 3
         direction = -1
+        coord_up_left = (x - 1) % self.n, (y - 1) % self.t
+        coord_down_left = (x - 1) % self.n, (y + 1) % self.t
+        coord_down_right = (x + 1) % self.n, (y + 1) % self.t
+        coord_up_right = (x + 1) % self.n, (y - 1) % self.t
         if x % 2 == 0 and y % 2 == 0:
             # top
             if not self.bond[(x // 2 - 1) % (self.n // 2), (y - 1) % self.t] and not visited[x, (y - 1) % self.t]:
                 y -= 1
-                direction = 0
+                direction = up
             # right
             elif self.bond[x // 2, y] and not visited[(x + 1) % self.n, y]:
                 x += 1
-                direction = 1
+                direction = right
             # bottom
             elif not self.bond[x // 2, y] and not visited[x, (y + 1) % self.t]:
                 y += 1
-                direction = 2
+                direction = down
             # left
             elif self.bond[(x // 2 - 1) % (self.n // 2), (y - 1) % self.t] and not visited[(x - 1) % self.n, y]:
                 x -= 1
-                direction = 3
+                direction = left
             # closed loop
             else:
                 loop_closed = True
@@ -80,19 +88,19 @@ class MeronAlgorithm:
             # top
             if not self.bond[x // 2, (y - 1) % self.t] and not visited[x, (y - 1) % self.t]:
                 y -= 1
-                direction = 0
+                direction = up
             # right
             elif self.bond[x // 2, (y - 1) % self.t] and not visited[(x + 1) % self.n, y]:
                 x += 1
-                direction = 1
+                direction = right
             # bottom
             elif not self.bond[x // 2, y] and not visited[x, (y + 1) % self.t]:
                 y += 1
-                direction = 2
+                direction = down
             # left
             elif self.bond[x // 2, y] and not visited[(x - 1) % self.n, y]:
                 x -= 1
-                direction = 3
+                direction = left
             # closed loop
             else:
                 loop_closed = True
@@ -100,19 +108,19 @@ class MeronAlgorithm:
             # top
             if not self.bond[x // 2, (y - 1) % self.t] and not visited[x, (y - 1) % self.t]:
                 y -= 1
-                direction = 0
+                direction = up
             # right
             elif self.bond[x // 2, (y - 1) % self.t] and not visited[(x + 1) % self.n, y]:
                 x += 1
-                direction = 1
+                direction = right
             # bottom
             elif not self.bond[(x // 2 - 1) % (self.n // 2), y] and not visited[x, (y + 1) % self.t]:
                 y += 1
-                direction = 2
+                direction = down
             # left
             elif self.bond[(x // 2 - 1) % (self.n // 2), y] and not visited[(x - 1) % self.n, y]:
                 x -= 1
-                direction = 3
+                direction = left
             # closed loop
             else:
                 loop_closed = True
@@ -120,19 +128,19 @@ class MeronAlgorithm:
             # top
             if not self.bond[x // 2, (y - 1) % self.t] and not visited[x, (y - 1) % self.t]:
                 y -= 1
-                direction = 0
+                direction = up
             # right
             elif self.bond[x // 2, y] and not visited[(x + 1) % self.n, y]:
                 x += 1
-                direction = 1
+                direction = right
             # bottom
             elif not self.bond[x // 2, y] and not visited[x, (y + 1) % self.t]:
                 y += 1
-                direction = 2
+                direction = down
             # left
             elif self.bond[x // 2, (y - 1) % self.t] and not visited[(x - 1) % self.n, y]:
                 x -= 1
-                direction = 3
+                direction = left
             # closed loop
             else:
                 loop_closed = True
@@ -230,13 +238,14 @@ class MeronAlgorithm:
 
     def _find_clusters(self):
         visited = np.full((self.n, self.t), False)  # record if site has been visited
-        cluster_nr = 0  # counter for how many clusters there are -1 and the ID given to each of the clusters
-        self.cluster_positions = []  # keeps one position of the cluster in order of cluster_id
+        # counter for how many clusters there are -1 and the ID given to each of the clusters
+        cluster_nr = 0
+        # Order like this to ensure top left position is encountered first
         for j, i in product(range(self.t), range(self.n)):
             if not visited[i, j]:  # if you haven't seen the loop before
                 x = i
                 y = j
-                self.cluster_positions.append([x, y])
+                self.cluster_positions[cluster_nr] = (x, y)
                 # Go around a cluster loop
                 loop_closed = False
                 while not loop_closed:
@@ -247,7 +256,7 @@ class MeronAlgorithm:
 
                 # look where to find next cluster
                 cluster_nr += 1
-        self.n_clusters = cluster_nr + 1
+        self.n_clusters = cluster_nr
 
     def _group_neighboring_clusters(self, left_group, right_group, x_start, y_start):
         x = x_start
@@ -457,7 +466,7 @@ class MeronAlgorithm:
             x = self.cluster_positions[self.charged_cluster_order[-1]][0]
             while self.cluster_id[x, 0] != self.charged_cluster_order[0]:
                 x = (x + 1) % self.n
-            self.cluster_positions[self.charged_cluster_order[0]][0] = x
+            self.cluster_positions[self.charged_cluster_order[0]] = (x, 0)
 
             # associate all charges to their own group
             self.cluster_group = np.full(self.n_clusters, -1)
