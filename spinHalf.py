@@ -156,11 +156,6 @@ class MeronAlgorithm:
             else:
                 self.bond[x, y] = False if random.random() < self.w_a / (self.w_a + self.w_b) else True
 
-    def _get_random_color(self, index):
-        np.random.seed(index)
-        color = tuple(np.append(np.random.choice(range(256), size=3), 127))
-        return color
-
     def draw_bonds(self):
         scale = 40
         image = Image.new("RGB", (scale * self.n + 2, scale * self.t + 2), "white")
@@ -192,6 +187,11 @@ class MeronAlgorithm:
                 draw.text((x * scale - 4, y * scale - 4), "-", fill=(0, 0, 0))
 
         image.save("config.jpg")
+
+    def _get_random_color(self, index):
+        np.random.seed(index)
+        color = tuple(np.append(np.random.choice(range(256), size=3), 127))
+        return color
 
     def _find_clusters(self):
         visited = np.full((self.n, self.t), False)  # record if site has been visited
@@ -225,59 +225,33 @@ class MeronAlgorithm:
         while not closed_loop:
             visited[x, y] = True
             x, y, closed_loop, direction = self._cluster_loop_step(x, y, visited)
+            cluster_up = self.cluster_id[x, (y - 1) % self.t]
+            cluster_right = self.cluster_id[(x + 1) % self.n, y]
+            cluster_down = self.cluster_id[x, (y + 1) % self.t]
+            cluster_left = self.cluster_id[(x - 1) % self.n, y]
+
+            # check left (right) neighbors of cluster and mark them as being in the same (own_id) group
+            # and recursively check their neighbors too
             if direction == 0:
-                if self.cluster_charge[self.cluster_id[(x - 1) % self.n, y]] == 0 and self.cluster_group[
-                    self.cluster_id[(x - 1) % self.n, y]] == -1:
-                    self.cluster_group[self.cluster_id[(x - 1) % self.n, y]] = left_group
-                    self._group_neighboring_clusters(left_group, self.cluster_id[(x - 1) % self.n, y],
-                                                     self.cluster_positions[self.cluster_id[(x - 1) % self.n, y]][0],
-                                                     self.cluster_positions[self.cluster_id[(x - 1) % self.n, y]][1])
-                if self.cluster_charge[self.cluster_id[(x + 1) % self.n, y]] == 0 and self.cluster_group[
-                    self.cluster_id[(x + 1) % self.n, y]] == -1:
-                    self.cluster_group[self.cluster_id[(x + 1) % self.n, y]] = right_group
-                    self._group_neighboring_clusters(right_group, self.cluster_id[(x + 1) % self.n, y],
-                                                     self.cluster_positions[self.cluster_id[(x + 1) % self.n, y]][0],
-                                                     self.cluster_positions[self.cluster_id[(x + 1) % self.n, y]][1])
+                self._mark_neighboring_clusters(cluster_left, left_group)
+                self._mark_neighboring_clusters(cluster_right, right_group)
             elif direction == 1:
-                if self.cluster_charge[self.cluster_id[x, (y - 1) % self.t]] == 0 and self.cluster_group[
-                    self.cluster_id[x, (y - 1) % self.t]] == -1:
-                    self.cluster_group[self.cluster_id[x, (y - 1) % self.t]] = left_group
-                    self._group_neighboring_clusters(left_group, self.cluster_id[x, (y - 1) % self.t],
-                                                     self.cluster_positions[self.cluster_id[x, (y - 1) % self.t]][0],
-                                                     self.cluster_positions[self.cluster_id[x, (y - 1) % self.t]][1])
-                if self.cluster_charge[self.cluster_id[x, (y + 1) % self.t]] == 0 and self.cluster_group[
-                    self.cluster_id[x, (y + 1) % self.t]] == -1:
-                    self.cluster_group[self.cluster_id[x, (y + 1) % self.t]] = right_group
-                    self._group_neighboring_clusters(right_group, self.cluster_id[x, (y + 1) % self.t],
-                                                     self.cluster_positions[self.cluster_id[x, (y + 1) % self.t]][0],
-                                                     self.cluster_positions[self.cluster_id[x, (y + 1) % self.t]][1])
+                self._mark_neighboring_clusters(cluster_up, left_group)
+                self._mark_neighboring_clusters(cluster_down, right_group)
             elif direction == 2:
-                if self.cluster_charge[self.cluster_id[(x - 1) % self.n, y]] == 0 and self.cluster_group[
-                    self.cluster_id[(x - 1) % self.n, y]] == -1:
-                    self.cluster_group[self.cluster_id[(x - 1) % self.n, y]] = right_group
-                    self._group_neighboring_clusters(right_group, self.cluster_id[(x - 1) % self.n, y],
-                                                     self.cluster_positions[self.cluster_id[(x - 1) % self.n, y]][0],
-                                                     self.cluster_positions[self.cluster_id[(x - 1) % self.n, y]][1])
-                if self.cluster_charge[self.cluster_id[(x + 1) % self.n, y]] == 0 and self.cluster_group[
-                    self.cluster_id[(x + 1) % self.n, y]] == -1:
-                    self.cluster_group[self.cluster_id[(x + 1) % self.n, y]] = left_group
-                    self._group_neighboring_clusters(left_group, self.cluster_id[(x + 1) % self.n, y],
-                                                     self.cluster_positions[self.cluster_id[(x + 1) % self.n, y]][0],
-                                                     self.cluster_positions[self.cluster_id[(x + 1) % self.n, y]][1])
+                self._mark_neighboring_clusters(cluster_right, left_group)
+                self._mark_neighboring_clusters(cluster_left, right_group)
             elif direction == 3:
-                if self.cluster_charge[self.cluster_id[x, (y - 1) % self.t]] == 0 and self.cluster_group[
-                    self.cluster_id[x, (y - 1) % self.t]] == -1:
-                    self.cluster_group[self.cluster_id[x, (y - 1) % self.t]] = right_group
-                    self._group_neighboring_clusters(right_group, self.cluster_id[x, (y - 1) % self.t],
-                                                     self.cluster_positions[self.cluster_id[x, (y - 1) % self.t]][0],
-                                                     self.cluster_positions[self.cluster_id[x, (y - 1) % self.t]][1])
-                if self.cluster_charge[self.cluster_id[x, (y + 1) % self.t]] == 0 and self.cluster_group[
-                    self.cluster_id[x, (y + 1) % self.t]] == -1:
-                    self.cluster_group[self.cluster_id[x, (y + 1) % self.t]] = left_group
-                    self._group_neighboring_clusters(left_group, self.cluster_id[x, (y + 1) % self.t],
-                                                     self.cluster_positions[self.cluster_id[x, (y + 1) % self.t]][0],
-                                                     self.cluster_positions[self.cluster_id[x, (y + 1) % self.t]][1])
+                self._mark_neighboring_clusters(cluster_down, left_group)
+                self._mark_neighboring_clusters(cluster_up, right_group)
         return marked
+
+    def _mark_neighboring_clusters(self, neighbor_id, neighbor_group):
+        if self.cluster_charge[neighbor_id] == 0 and self.cluster_group[neighbor_id] == -1:
+            self.cluster_group[neighbor_id] = neighbor_group
+            self._group_neighboring_clusters(neighbor_group, neighbor_id,
+                                             self.cluster_positions[neighbor_id][0],
+                                             self.cluster_positions[neighbor_id][1])
 
     # O(cluster_nr^2) TODO: could probably be done faster
     def _find_cluster_order(self, cluster_group):
