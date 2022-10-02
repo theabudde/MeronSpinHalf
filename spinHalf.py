@@ -145,8 +145,9 @@ class MeronAlgorithm:
 
         image.save("config.jpg")
 
-    def _get_random_color(self, index):
-        np.random.seed(index + 10)
+    @staticmethod
+    def _get_random_color(index):
+        np.random.seed(index + 100)
         color = tuple(np.append(np.random.choice(range(256), size=3), 127))
         return color
 
@@ -230,26 +231,26 @@ class MeronAlgorithm:
         charge = np.zeros(self.n_clusters + 1)
         for j in range(self.t):
             for c in range(self.n_clusters + 1):
-                rowcharge = 0
+                row_charge = 0
                 for i in range(self.n):
                     if self.cluster_id[i, j] == c:
                         if i % 2:
-                            rowcharge += 1
+                            row_charge += 1
                         else:
-                            rowcharge -= 1
-                if charge[c] != rowcharge and j > 0:
-                    raise ('Charge varies over different rows')
-                charge[c] = rowcharge
+                            row_charge -= 1
+                if charge[c] != row_charge and j > 0:
+                    raise 'Charge varies over different rows'
+                charge[c] = row_charge
         # print(charge)
         if charge.sum() != 0:
-            raise ('Total charge not zero')
+            raise 'Total charge not zero'
 
         if np.amax(charge) > 1:
             if np.count_nonzero(charge == np.amax(charge)) > 1:
                 print('multiple 2 windings')
             for c in charge:
                 if abs(c) != np.amax(charge) and c != 0:
-                    raise ('clusters of different charges mixed')
+                    raise 'clusters of different charges mixed'
         if np.amax(charge) > 1:
             print(np.amax(charge), seed)
 
@@ -287,7 +288,7 @@ class MeronAlgorithm:
         for i in range(self.t):
             if self.horizontal_winding[self.cluster_id[0, i]] != 0 and not self.cluster_id[
                                                                                0, i] in self.charged_cluster_order:
-                self.charged_cluster_order.append(self.cluster_id[0, i])
+                self.horizontal_winding_order.append(self.cluster_id[0, i])
                 self.cluster_positions[self.cluster_id[0, i]] = (0, i)
 
     def correct_left_position_of_charged_clusters(self):
@@ -448,7 +449,8 @@ class MeronAlgorithm:
                     self._generate_neutral_flips(cluster, boundary_charge, not plus_minus)
 
     def mc_step(self):
-        seed = 1
+        n_flip_configs = 100000
+        seed = 3
         # for seed in range(0, 10000):
         random.seed(seed)
 
@@ -467,91 +469,79 @@ class MeronAlgorithm:
         # optional: run tests to verify hypothesis of cluster structure (very slow)
         # self.tests(seed)
 
-        charged = False
         self._identify_charged_clusters()
         self._identify_horizontal_charges()
 
+        self.flip = np.zeros(self.n_clusters)
+        histogram = np.zeros(2 ** self.n_clusters)
+        self.cluster_combinations = np.zeros((self.n_clusters, 2))
+        self.cluster_group = np.full(self.n_clusters, -1)
+
         if len(self.charged_cluster_order) > 0:
-            charged = True
             self.correct_left_position_of_charged_clusters()
+            self._correct_left_positions_of_boundary_clusters()
+            self._assign_groups()
+            # calculate the cluster combinations
+            for charge in self.charged_cluster_order:
+                self._calculate_combinations(charge, False)
+            for i in range(n_flip_configs):
+                self.flip = np.zeros(self.n_clusters)
+                for charge in self.charged_cluster_order:
+                    self._generate_neutral_flips(charge, self.cluster_charge[charge], self.cluster_charge[charge] < 0)
+                histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
+
         elif len(self.horizontal_winding_order) > 0:
+            raise NotImplementedError('horizontal winding')
             # TODO: look at ordering, what constraints does a horizontal charge give?
             self.correct_top_position_of_horizontally_winding_clusters()
-
-        self._correct_left_positions_of_boundary_clusters()
-
-        # if there are no charged clusters and no horizontal windings find an outermost cluster
-        if len(self.charged_cluster_order) == 0:
+        else:
+            self._correct_left_positions_of_boundary_clusters()
             self.left_neighbors.append(0)
             self._left_neighbor(0)
             # TODO: Don't know if this actually works, ordering not quite obvious
             start_cluster = self.left_neighbors[-1]
-            self.cluster_group = np.full(self.n_clusters, -1)
-            self.cluster_group[start_cluster] = -2
             self._group_neighboring_clusters(-2, start_cluster, self.cluster_positions[start_cluster][0],
                                              self.cluster_positions[start_cluster][1])
             self._find_cluster_order(-2, -2)
-        else:
-            self._assign_groups()
-
-        # create picture for debugging
-        self.draw_bonds()
-
-        # calculate the cluster combinations
-        self.cluster_combinations = np.zeros((len(self.cluster_order), 2))
-        for charge in self.charged_cluster_order:
-            if self.cluster_charge[charge] > 0:
-                self._calculate_combinations(charge, True)
+            self.draw_bonds()
+            plus_minus = self.cluster_positions[self.cluster_order[-2][0]][0] % 2
+            total_combinations = self._calculate_combinations(-2, not plus_minus)
+            if plus_minus:
+                total_combinations[1] -= total_combinations[0] + 1
             else:
-                self._calculate_combinations(charge, False)
-
-        self.flip = np.zeros(self.n_clusters)
-
-        # generate a flip combination with homogeneous probability
-        histogram = np.zeros(2 ** self.n_clusters)
-        for i in range(10):
-            # self._generate_neutral_flips(self.charged_cluster_order[0],
-            #                             self.cluster_charge[self.charged_cluster_order[0]],
-            #                             self.cluster_charge[self.charged_cluster_order[0]] < 0)
-            for charge in self.charged_cluster_order:
-                self._generate_neutral_flips(charge, self.cluster_charge[charge], self.cluster_charge[charge] < 0)
-
-            if len(self.charged_cluster_order) == 0:
-                plus_minus = self.cluster_positions[self.cluster_order[-2][0]][0] % 2
-                total_combinations = self._calculate_combinations(-2, not plus_minus)
-                if plus_minus:
-                    total_combinations[1] -= total_combinations[0] + 1
-                else:
-                    total_combinations[0] -= total_combinations[1] + 1
-                # Todo: verify probability
-                p_plus_minus = (total_combinations[0] + 1) / (total_combinations[0] + total_combinations[1] + 2)
+                total_combinations[0] -= total_combinations[1] + 1
+            p_plus_minus = (total_combinations[0] + 1) / (total_combinations[0] + total_combinations[1] + 2)
+            for i in range(n_flip_configs):
+                self.flip = np.zeros(self.n_clusters)
+                ignore_zero = False
                 if random.random() < p_plus_minus:
                     charge = -1
+                    ignore_zero = True
                 else:
                     charge = 1
                 self._generate_neutral_flips(-2, charge, plus_minus)
-
-            histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
+                if not (ignore_zero and np.amax(self.flip) == 0):
+                    histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
         plt.plot(histogram[histogram != 0], ".")
         plt.ylim(bottom=0)
         plt.show()
 
-        print('test')
+        pass
 
 
 def main():
-    n = 16  # number of lattice points
-    t = 16  # number of half timesteps (#even + #odd)
+    n = 10  # number of lattice points
+    t = 10  # number of half time steps (#even + #odd)
     beta = 1  # beta
     mc_steps = 1  # number of mc steps
     initial_mc_steps = 5000
     w_a = 3 / 4  # np.exp(b/t)  # weight of a plaquettes U = t = 1
     w_b = 1 / 4  # np.sinh(b/t)  # weight of b plaquettes
 
-    Algorithm = MeronAlgorithm(n, t, w_a, w_b, beta, mc_steps)
+    algorithm = MeronAlgorithm(n, t, w_a, w_b, beta, mc_steps)
 
     for mc in range(mc_steps):
-        Algorithm.mc_step()
+        algorithm.mc_step()
 
 
 if __name__ == "__main__":
