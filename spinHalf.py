@@ -37,13 +37,11 @@ class MeronAlgorithm:
         self.left_neighbors = []
         # left neighbor going counterclockwise of every neutral cluster
         self.cluster_group = np.array([0])
-        # order of nested neutral clusters right of the indexed charge
+        # order of nested neutral clusters indexed by their surrounding cluster/left charged neighbor
         self.cluster_order = {}
-        # nesting patterns of the cluster indexed by the charge group, +1 (+2) for the opening (closing) of a +- cluster and
-        # -1 (-2) for the opening (closing) of a -+ cluster and
-        self.nesting_brackets = {}
         # saves the nr of flip possibilites for +- and -+ starting from the corresponding cluster
         self.cluster_combinations = np.array([])
+        self.flip = []
 
         # fermion lattice initialized to reference configuration
         self.fermion = np.full((self.n, self.t), False)
@@ -364,8 +362,6 @@ class MeronAlgorithm:
 
         # find cluster order recursively
         for charge in self.charged_cluster_order:
-            self.nesting_brackets[charge] = []
-            self.cluster_order[charge] = []
             self._find_cluster_order(charge, charge)
 
     def _group_neighboring_clusters(self, left_group, right_group, x_start, y_start):
@@ -406,95 +402,53 @@ class MeronAlgorithm:
 
     # O(cluster_nr^2) TODO: could probably be done faster
     def _find_cluster_order(self, cluster_group, charge_group):
-        self.nesting_brackets[charge_group].append(-1)
+        # self.nesting_brackets[charge_group].append(-1)
+        self.cluster_order[charge_group] = []
         for i in range(self.n_clusters):
             if self.cluster_group[i] == cluster_group and i != cluster_group:
                 self.cluster_order[charge_group].append(i)
-                self._find_cluster_order(i, charge_group)
-        self.nesting_brackets[charge_group].append(-2)
+                self._find_cluster_order(i, i)
+        # self.nesting_brackets[charge_group].append(-2)
 
-    def _evaluate(self, start_index, final_index):
-        if start_index >= final_index:
-            return np.zeros(2)
-        if self.cluster_combinations[start_index + 1, 0] == -3:
-            j = start_index + 2
-            while self.cluster_combinations[j, 0] != -4:
-                j += 1
-            combis = self._evaluate(start_index + 2, j - 1)
-            combis = np.array([combis[0] + combis[1] + 1, combis[1]])
-            self.cluster_combinations[start_index] = combis
-            return (combis + 1) * (self._evaluate(j + 1, final_index) + 1) - 1
-        if self.cluster_combinations[start_index + 1, 0] == -5:
-            j = start_index + 2
-            while self.cluster_combinations[j, 0] != -6:
-                j += 1
-            combis = self._evaluate(start_index + 2, j - 1)
-            combis = np.array([combis[0], combis[0] + combis[1] + 1])
-            self.cluster_combinations[start_index] = combis
-            return (combis + 1) * (self._evaluate(j + 1, final_index) + 1) - 1
-        if self.cluster_combinations[start_index + 1, 0] == -1:
-            j = start_index + 2
-            while self.cluster_combinations[j, 0] != -2:
-                j += 1
-            self.cluster_combinations[start_index] = self._evaluate(start_index + 2, j - 1)
-            self._evaluate(j + 1, final_index)
+    def _calculate_combinations(self, start_cluster, plus_minus):
+        result = np.array([0, 0])
+        for i in range(len(self.cluster_order[start_cluster])):
+            result = (result + 1) * (
+                    self._calculate_combinations(self.cluster_order[start_cluster][i], not plus_minus) + 1) - 1
+        if self.cluster_charge[start_cluster] == 0:
+            if plus_minus:
+                result = np.array([result[0] + result[1] + 1, result[1]])
+            else:
+                result = np.array([result[0], result[0] + result[1] + 1])
+        if start_cluster >= 0:
+            self.cluster_combinations[start_cluster] = result
+        return result
 
-    def _generate_flips(self):
-        boundary_condition = deque()
-        flip = []
-        i = 0
-        while i < self.cluster_combinations.shape[0]:
-            if self.cluster_combinations[i + 1, 0] == -1:
-                boundary_condition.append(self.cluster_charge[self.cluster_order[i]])
-                i += 2
-            elif self.cluster_combinations[i, 0] == -2:
-                break
-            elif np.array_equal(self.cluster_combinations[i], np.array([1, 0])) and boundary_condition[-1] > 0:
-                flip.append(0)
-                i += 3
-            elif np.array_equal(self.cluster_combinations[i], np.array([1, 0])) and boundary_condition[-1] < 0:
-                flip.append(0 if random.random() < 0.5 else 1)
-                i += 3
-            elif np.array_equal(self.cluster_combinations[i], np.array([0, 1])) and boundary_condition[-1] > 0:
-                flip.append(0 if random.random() < 0.5 else 1)
-                i += 3
-            elif np.array_equal(self.cluster_combinations[i], np.array([0, 1])) and boundary_condition[-1] < 0:
-                flip.append(0)
-                i += 3
-            elif self.cluster_combinations[i + 1, 0] == -3 and boundary_condition[-1] < 0:
-                if random.random() < (self.cluster_combinations[i, 1] + 1) / (self.cluster_combinations[i, 0] + 1):
-                    flip.append(1)
-                    i += 2
-                    boundary_condition.append(boundary_condition[-1] * -1)
+    def _generate_neutral_flips(self, charged_cluster, boundary_charge, plus_minus):
+        for cluster in self.cluster_order[charged_cluster]:
+            if np.array_equal(self.cluster_combinations[cluster], np.array([1, 0])):
+                if boundary_charge < 0:
+                    self.flip[cluster] = random.random() < 0.5
+            elif np.array_equal(self.cluster_combinations[cluster], np.array([0, 1])):
+                if boundary_charge > 0:
+                    self.flip[cluster] = random.random() < 0.5
+            elif boundary_charge < 0:
+                if random.random() < (self.cluster_combinations[cluster][1] + 1) / (
+                        self.cluster_combinations[cluster][0] + 1) and plus_minus:
+                    self.flip[cluster] = 1
+                    self._generate_neutral_flips(cluster, - boundary_charge, not plus_minus)
                 else:
-                    flip.append(0)
-                    i += 2
-                    boundary_condition.append(boundary_condition[-1])
-            elif self.cluster_combinations[i + 1, 0] == -3 and boundary_condition[-1] > 0:
-                flip.append(0)
-                i += 2
-                boundary_condition.append(boundary_condition[-1])
-            elif self.cluster_combinations[i + 1, 0] == -5 and boundary_condition[-1] > 0:
-                if random.random() < (self.cluster_combinations[i, 0] + 1) / (self.cluster_combinations[i, 1] + 1):
-                    flip.append(1)
-                    i += 2
-                    boundary_condition.append(boundary_condition[-1] * -1)
+                    self._generate_neutral_flips(cluster, boundary_charge, not plus_minus)
+            else:
+                if random.random() < (self.cluster_combinations[cluster][0] + 1) / (
+                        self.cluster_combinations[cluster][1] + 1) and not plus_minus:
+                    self.flip[cluster] = 1
+                    self._generate_neutral_flips(cluster, - boundary_charge, not plus_minus)
                 else:
-                    flip.append(0)
-                    i += 2
-                    boundary_condition.append(boundary_condition[-1])
-            elif self.cluster_combinations[i + 1, 0] == -5 and boundary_condition[-1] < 0:
-                flip.append(0)
-                i += 2
-                boundary_condition.append(boundary_condition[-1])
-            # but only if the cluster was actually flipped!
-            elif self.cluster_combinations[i, 0] == -4 or self.cluster_combinations[i, 0] == -6:
-                boundary_condition.pop()
-                i += 1
-        return flip
+                    self._generate_neutral_flips(cluster, boundary_charge, not plus_minus)
 
     def mc_step(self):
-        seed = 6
+        seed = 1
         # for seed in range(0, 10000):
         random.seed(seed)
 
@@ -530,69 +484,54 @@ class MeronAlgorithm:
         if len(self.charged_cluster_order) == 0:
             self.left_neighbors.append(0)
             self._left_neighbor(0)
-            # TODO: Don't know if this actually works ordering not quite obvious
+            # TODO: Don't know if this actually works, ordering not quite obvious
             start_cluster = self.left_neighbors[-1]
             self.cluster_group = np.full(self.n_clusters, -1)
             self.cluster_group[start_cluster] = -2
             self._group_neighboring_clusters(-2, start_cluster, self.cluster_positions[start_cluster][0],
                                              self.cluster_positions[start_cluster][1])
-            self._find_cluster_order(-2)
-
+            self._find_cluster_order(-2, -2)
         else:
             self._assign_groups()
 
         # create picture for debugging
         self.draw_bonds()
 
-        # adjust brackets corresponding to sign
-        # 0 just skip
-        # -1 opens -2 closes charges
-        # -3 opens -4 closes +- loops
-        # -5 opens -6 closes -+ loops
-        current_last_charge = 0
-        cluster_order_index = 0
-        for i in range(len(self.nesting_brackets)):
-            if len(self.charged_cluster_order) == 0 and i == 0 or i == len(self.nesting_brackets) - 1:
-                self.nesting_brackets[i] = 0
-            if self.nesting_brackets[i] == -1:
-                if self.cluster_charge[self.cluster_order[cluster_order_index]] > 0:
-                    current_last_charge = +1
-                elif self.cluster_charge[cluster_order_index] < 0:
-                    current_last_charge = -1
-                else:
-                    self.nesting_brackets[i] = -4 - current_last_charge
-
-                    # find closing bracket
-                    j = i
-                    loop_openings_counter = 0
-                    while True:
-                        if self.nesting_brackets[j] == -2:
-                            if loop_openings_counter == 0:
-                                break
-                            else:
-                                loop_openings_counter -= 1
-                        if self.nesting_brackets[j] == -1:
-                            loop_openings_counter += 1
-                        j += 1
-                    self.cluster_order[j] = -5 - current_last_charge
-                    current_last_charge *= -1
-                cluster_order_index += 1
-            elif self.cluster_order[i] < 0 and self.cluster_order[i] % 2 == 0:
-                current_last_charge *= -1
-
         # calculate the cluster combinations
         self.cluster_combinations = np.zeros((len(self.cluster_order), 2))
-        for i in range(len(self.cluster_order)):
-            if self.cluster_order[i] < 0:
-                self.cluster_combinations[i] = self.cluster_order[i] * np.array([1, 1])
-        self._evaluate(0, len(self.cluster_order) - 1)
+        for charge in self.charged_cluster_order:
+            if self.cluster_charge[charge] > 0:
+                self._calculate_combinations(charge, True)
+            else:
+                self._calculate_combinations(charge, False)
 
-        # generate a flip combination with hoomogeneous probability
+        self.flip = np.zeros(self.n_clusters)
+
+        # generate a flip combination with homogeneous probability
         histogram = np.zeros(2 ** self.n_clusters)
         for i in range(10):
-            flip = self._generate_flips()
-            if not flip == []:
-                histogram[int("".join(str(k) for k in flip), 2)] += 1
+            # self._generate_neutral_flips(self.charged_cluster_order[0],
+            #                             self.cluster_charge[self.charged_cluster_order[0]],
+            #                             self.cluster_charge[self.charged_cluster_order[0]] < 0)
+            for charge in self.charged_cluster_order:
+                self._generate_neutral_flips(charge, self.cluster_charge[charge], self.cluster_charge[charge] < 0)
+
+            if len(self.charged_cluster_order) == 0:
+                plus_minus = self.cluster_positions[self.cluster_order[-2][0]][0] % 2
+                total_combinations = self._calculate_combinations(-2, not plus_minus)
+                if plus_minus:
+                    total_combinations[1] -= total_combinations[0] + 1
+                else:
+                    total_combinations[0] -= total_combinations[1] + 1
+                # Todo: verify probability
+                p_plus_minus = (total_combinations[0] + 1) / (total_combinations[0] + total_combinations[1] + 2)
+                if random.random() < p_plus_minus:
+                    charge = -1
+                else:
+                    charge = 1
+                self._generate_neutral_flips(-2, charge, plus_minus)
+
+            histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
         plt.plot(histogram[histogram != 0], ".")
         plt.ylim(bottom=0)
         plt.show()
