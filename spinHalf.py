@@ -2,7 +2,6 @@ import random
 import numpy as np
 from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
-from collections import deque
 from itertools import product
 
 
@@ -449,9 +448,17 @@ class MeronAlgorithm:
                 else:
                     self._generate_neutral_flips(cluster, boundary_charge, not plus_minus)
 
+    def _flips_are_zero(self, charged_cluster):
+        result = 0
+        for cluster in self.cluster_order[charged_cluster]:
+            if self.flip[cluster] == 1:
+                return 1
+            result += self._flips_are_zero(cluster)
+        return result
+
     def _generate_neutral_flips_no_zero(self, charged_cluster, boundary_charge, plus_minus):
         self._generate_neutral_flips(charged_cluster, boundary_charge, plus_minus)
-        if len(self.cluster_order[charged_cluster]) > 0 and not np.any(self.flip[self.cluster_order[charged_cluster]]):
+        if not self._flips_are_zero(charged_cluster) and not np.any(self.flip[self.cluster_order[charged_cluster]]):
             self._generate_neutral_flips_no_zero(charged_cluster, boundary_charge, plus_minus)
 
     def _charge_automaton(self, row, charge_index, case_character):
@@ -606,7 +613,7 @@ class MeronAlgorithm:
                         self.flip[charge] = 1
                         self._generate_neutral_flips(charge, self.cluster_charge[charge],
                                                      self.cluster_charge[charge] < 0)
-            else:
+            elif row == 0 or row == 3:
                 match case_character:
                     case 0:
                         self.flip[charge] = 0
@@ -616,11 +623,22 @@ class MeronAlgorithm:
                         self.flip[charge] = 1
                         self._generate_neutral_flips(charge, self.cluster_charge[charge],
                                                      self.cluster_charge[charge] < 0)
+            else:
+                match case_character:
+                    case 0:
+                        self.flip[charge] = 0
+                        self._generate_neutral_flips(charge, self.cluster_charge[charge],
+                                                     self.cluster_charge[charge] < 0)
+                    case 1:
+                        self.flip[charge] = 1
+                        self._generate_neutral_flips(charge, - self.cluster_charge[charge],
+                                                     self.cluster_charge[charge] < 0)
+
             row, weight = self._charge_automaton(row, charge_idx, case_character)
 
     def mc_step(self):
         n_flip_configs = 100000
-        seed = 14
+        seed = 2
         # for seed in range(0, 10000):
         random.seed(seed)
 
@@ -656,6 +674,8 @@ class MeronAlgorithm:
             self.correct_left_position_of_charged_clusters()
             self._correct_left_positions_of_boundary_clusters()
             self._assign_groups()
+            # draw config for debug
+            self.draw_bonds()
             # calculate the cluster combinations
             for charge in self.charged_cluster_order:
                 if self.cluster_charge[charge] > 0:
@@ -718,8 +738,8 @@ def main():
     beta = 1  # beta
     mc_steps = 1  # number of mc steps
     initial_mc_steps = 5000
-    w_a = 3 / 4  # np.exp(b/t)  # weight of a plaquettes U = t = 1
-    w_b = 1 / 4  # np.sinh(b/t)  # weight of b plaquettes
+    w_a = 2 / 4  # np.exp(b/t)  # weight of a plaquettes U = t = 1
+    w_b = 2 / 4  # np.sinh(b/t)  # weight of b plaquettes
 
     algorithm = MeronAlgorithm(n, t, w_a, w_b, beta, mc_steps)
 
