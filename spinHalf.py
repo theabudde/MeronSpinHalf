@@ -454,7 +454,7 @@ class MeronAlgorithm:
             if self.flip[cluster] == 1:
                 return 1
             result += self._flips_are_zero(cluster)
-        return result
+        return result > 0
 
     def _generate_neutral_flips_no_zero(self, charged_cluster, boundary_charge, plus_minus):
         self._generate_neutral_flips(charged_cluster, boundary_charge, plus_minus)
@@ -511,8 +511,8 @@ class MeronAlgorithm:
                             next_row = 1
                             arrow_weight = pm_combinations
                         else:
-                            next_row = 4
-                            arrow_weight = mp_combinations
+                            next_row = 0
+                            arrow_weight = pm_combinations
                     case 2:
                         if charge_index == len(self.charged_cluster_order) - 1:
                             next_row = 2
@@ -521,8 +521,8 @@ class MeronAlgorithm:
                             next_row = 3
                             arrow_weight = mp_combinations
                         else:
-                            next_row = 0
-                            arrow_weight = pm_combinations
+                            next_row = 4
+                            arrow_weight = mp_combinations
                     case 3:
                         if charge_index == len(self.charged_cluster_order) - 1:
                             next_row = -1
@@ -605,10 +605,14 @@ class MeronAlgorithm:
                         self.flip[charge] = 0
                         if self.cluster_combinations[charge][0] > 0:
                             self._generate_neutral_flips_no_zero(charge, -1, self.cluster_charge[charge] < 0)
+                        else:
+                            raise NotImplementedError
                     case 2:
                         self.flip[charge] = 0
                         if self.cluster_combinations[charge][1] > 0:
                             self._generate_neutral_flips_no_zero(charge, 1, self.cluster_charge[charge] < 0)
+                        else:
+                            raise NotImplementedError
                     case 3:
                         self.flip[charge] = 1
                         self._generate_neutral_flips(charge, self.cluster_charge[charge],
@@ -638,7 +642,7 @@ class MeronAlgorithm:
 
     def mc_step(self):
         n_flip_configs = 100000
-        seed = 2
+        seed = 22
         # for seed in range(0, 10000):
         random.seed(seed)
 
@@ -722,8 +726,10 @@ class MeronAlgorithm:
                     if not int("".join(str(int(k)) for k in self.flip)) == 0 or random.random() < 0.5:
                         break
                 histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
-        plt.plot(histogram[histogram != 0], ".")
+        plt.plot(histogram, ".")
         plt.ylim(bottom=0)
+        plt.xlim(left=0)
+        plt.grid()
         plt.show()
 
         # draw config for debug
@@ -733,13 +739,13 @@ class MeronAlgorithm:
 
 
 def main():
-    n = 10  # number of lattice points
-    t = 10  # number of half time steps (#even + #odd)
+    n = 12  # number of lattice points
+    t = 12  # number of half time steps (#even + #odd)
     beta = 1  # beta
     mc_steps = 1  # number of mc steps
     initial_mc_steps = 5000
-    w_a = 2 / 4  # np.exp(b/t)  # weight of a plaquettes U = t = 1
-    w_b = 2 / 4  # np.sinh(b/t)  # weight of b plaquettes
+    w_a = 3 / 4  # np.exp(b/t)  # weight of a plaquettes U = t = 1
+    w_b = 1 / 4  # np.sinh(b/t)  # weight of b plaquettes
 
     algorithm = MeronAlgorithm(n, t, w_a, w_b, beta, mc_steps)
 
