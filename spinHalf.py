@@ -75,21 +75,21 @@ class MeronAlgorithm:
         self.cluster_positions = {}
         # charge of each cluster in order cluster_id
         self.cluster_charge = np.array([0])
-        # order of charged clusters only
+        # order of charged clusters only or if only neutrals exist, the horizontally winding clusters
         self.charged_cluster_order = []
         # number of times a neutral cluster wraps horizontally
         self.horizontal_winding = np.array([0])
-        # order of the horizontally wrapping clusters
-        self.horizontal_winding_order = []
+        # if only non winding neutrals these are the left neighbors of the 0 cluster
+        # the first one will be an outermost cluster
+        self.left_neighbors = []
         # left neighbor going counterclockwise of every neutral cluster
         self.cluster_group = np.array([0])
-        # order of clusters for automaton to be able to process
+        # order of nested neutral clusters indexed by their surrounding cluster/left charged neighbor
         self.cluster_order = {}
-        # nesting patterns of the cluster. 0 for a charge, +1 (+2) for the opening (closing) of a +- cluster and
-        # -1 (-2) for the opening (closing) of a -+ cluster and
-        self.nesting_brackets = {}
         # saves the nr of flip possibilites for +- and -+ starting from the corresponding cluster
         self.cluster_combinations = np.array([])
+        self.flip = []
+        self.charge_combinations = np.array([])
 
         # fermion lattice initialized to reference configuration
         self.fermion = np.full((self.n, self.t), False)
