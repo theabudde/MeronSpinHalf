@@ -363,18 +363,16 @@ class MeronAlgorithm:
 
     def _assign_groups(self):
         self.cluster_group = np.full(self.n_clusters, -1)
+        for cluster in range(self.n_clusters):
+            self.cluster_order[cluster] = []
         # recursive identification of nearest left charge or surrounding cluster for all neutral clusters
         for i in range(len(self.charged_cluster_order)):
-            self._group_neighboring_clusters(self.charged_cluster_order[i], self.charged_cluster_order[i - 1],
+            self._order_neighboring_clusters(self.charged_cluster_order[i], self.charged_cluster_order[i - 1],
                                              self.charged_cluster_order[i])
 
-        # find cluster order recursively
-        for charge in self.charged_cluster_order:
-            self._find_cluster_order(charge, charge)
-
-    def _group_neighboring_clusters(self, starting_cluster_id, left_group, right_group):
+    def _order_neighboring_clusters(self, start_cluster_id, left_group, right_group):
         closed_loop = False
-        start_position = self.cluster_positions[starting_cluster_id]
+        start_position = self.cluster_positions[start_cluster_id]
         position = start_position
         previous_position = start_position
 
@@ -408,17 +406,8 @@ class MeronAlgorithm:
     def _mark_neighboring_clusters(self, neighbor_id, neighbor_group):
         if self.cluster_charge[neighbor_id] == 0 and self.cluster_group[neighbor_id] == -1:
             self.cluster_group[neighbor_id] = neighbor_group
-            self._group_neighboring_clusters(neighbor_id, neighbor_group, neighbor_id)
-
-    # O(cluster_nr^2) TODO: could probably be done faster
-    def _find_cluster_order(self, cluster_group, charge_group):
-        # self.nesting_brackets[charge_group].append(-1)
-        self.cluster_order[charge_group] = []
-        for i in range(self.n_clusters):
-            if self.cluster_group[i] == cluster_group and i != cluster_group:
-                self.cluster_order[charge_group].append(i)
-                self._find_cluster_order(i, i)
-        # self.nesting_brackets[charge_group].append(-2)
+            self.cluster_order[neighbor_group].append(neighbor_id)
+            self._order_neighboring_clusters(neighbor_id, neighbor_group, neighbor_id)
 
     def _calculate_combinations(self, start_cluster, plus_minus):
         result = np.array([0, 0])
