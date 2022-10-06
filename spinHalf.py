@@ -27,10 +27,13 @@ class MeronAlgorithm:
         self.cluster_positions = {}
         # charge of each cluster in order cluster_id
         self.cluster_charge = np.array([0])
+        self.charged_clusters_exist = False
         # order of charged clusters only or if only neutrals exist, the horizontally winding clusters
         self.charged_cluster_order = []
         # number of times a neutral cluster wraps horizontally
         self.horizontal_winding = np.array([0])
+        self.horizontal_winding_order = []
+        self.horizontally_winding_clusters_exist = False
         # if only non winding neutrals these are the left neighbors of the 0 cluster
         # the first one will be an outermost cluster
         self.left_neighbors = []
@@ -208,8 +211,6 @@ class MeronAlgorithm:
             elif self.bond[coord_bond_up_left] and not visited_coord_left:
                 x -= 1
                 direction = left
-            else:
-                loop_closed = True
         elif (x % 2 == 1 and y % 2 == 0) or (x % 2 == 0 and y % 2 == 1):
             if not self.bond[coord_bond_up_right] and not visited_coord_up:
                 y -= 1
@@ -223,8 +224,6 @@ class MeronAlgorithm:
             elif self.bond[coord_bond_down_left] and not visited_coord_left:
                 x -= 1
                 direction = left
-            else:
-                loop_closed = True
         x = x % self.n  # boundary conditions
         y = y % self.t
         if (x, y) == start_of_loop:
@@ -280,6 +279,7 @@ class MeronAlgorithm:
             if self.cluster_charge[self.cluster_id[i, 0]] != 0 and not self.cluster_id[
                                                                            i, 0] in self.charged_cluster_order:
                 self.charged_cluster_order.append(self.cluster_id[i, 0])
+                self.charged_clusters_exist = True
 
     def _identify_horizontal_winding(self):
         # determine cluster's winding
@@ -294,8 +294,9 @@ class MeronAlgorithm:
         for i in range(self.t):
             if self.horizontal_winding[self.cluster_id[0, i]] != 0 and not self.cluster_id[
                                                                                0, i] in self.charged_cluster_order:
-                # self.horizontal_winding_order.append(self.cluster_id[0, i])
+                self.horizontal_winding_order.append(self.cluster_id[0, i])
                 self.cluster_positions[self.cluster_id[0, i]] = (0, i)
+                self.horizontally_winding_clusters_exist = True
 
     def correct_left_position_of_charged_clusters(self):
         # correct the charged one that is closest from the left to [0,0]
@@ -331,40 +332,7 @@ class MeronAlgorithm:
                             self.cluster_positions[self.cluster_id[position]][0] - 1) % self.n:
                         self.cluster_positions[self.cluster_id[position]] = position
 
-    def _left_neighbor(self, cluster):
-        x = self.cluster_positions[cluster][0]
-        y = self.cluster_positions[cluster][1]
-        closed_loop = False
-        visited = np.zeros((self.n, self.t))
-
-        while not closed_loop:
-            visited[x, y] = True
-            x, y, closed_loop, direction = self._cluster_loop_step(x, y, visited)
-            cluster_up = self.cluster_id[x, (y - 1) % self.t]
-            cluster_right = self.cluster_id[(x + 1) % self.n, y]
-            cluster_down = self.cluster_id[x, (y + 1) % self.t]
-            cluster_left = self.cluster_id[(x - 1) % self.n, y]
-
-            # check left (right) neighbors of cluster and mark them as being in the same (own_id) group
-            # and recursively check their neighbors too
-            if direction == 0:
-                self._find_left_neighboring_cluster(cluster_left)
-            elif direction == 1:
-                self._find_left_neighboring_cluster(cluster_up)
-            elif direction == 2:
-                self._find_left_neighboring_cluster(cluster_right)
-            elif direction == 3:
-                self._find_left_neighboring_cluster(cluster_down)
-
-    def _find_left_neighboring_cluster(self, neighbor_id):
-        if neighbor_id not in self.left_neighbors:
-            self.left_neighbors.append(neighbor_id)
-            self._left_neighbor(neighbor_id)
-
     def _assign_groups(self):
-        self.cluster_group = np.full(self.n_clusters, -1)
-        for cluster in range(self.n_clusters):
-            self.cluster_order[cluster] = []
         # recursive identification of nearest left charge or surrounding cluster for all neutral clusters
         for i in range(len(self.charged_cluster_order)):
             self._order_neighboring_clusters(self.charged_cluster_order[i], self.charged_cluster_order[i - 1],
@@ -401,13 +369,104 @@ class MeronAlgorithm:
                 self._mark_neighboring_clusters(cluster_down, left_group)
                 self._mark_neighboring_clusters(cluster_up, right_group)
 
-    # def _find_cluster_order(self, charge, charge_id):
-
     def _mark_neighboring_clusters(self, neighbor_id, neighbor_group):
         if self.cluster_charge[neighbor_id] == 0 and self.cluster_group[neighbor_id] == -1:
             self.cluster_group[neighbor_id] = neighbor_group
             self.cluster_order[neighbor_group].append(neighbor_id)
             self._order_neighboring_clusters(neighbor_id, neighbor_group, neighbor_id)
+
+    def _assign_groups_only_neutrals(self):
+        self.cluster_order[-2] = []
+        start_cluster = 0
+        while True:
+            outer_cluster = -2
+            same_cluster_level = []
+            neighbors = self._find_left_neighbors(start_cluster)
+            for neighbor in neighbors:
+                if self._has_as_right_neighbor(neighbor, start_cluster):
+                    outer_cluster = neighbor
+                else:
+                    same_cluster_level.append(neighbor)
+            for neighbor in same_cluster_level:
+                if not neighbor == outer_cluster:
+                    if self.cluster_group[neighbor] == - 1:
+                        self.cluster_group[neighbor] = outer_cluster
+                        self.cluster_order[outer_cluster].append(neighbor)
+                        self._order_neighboring_clusters(neighbor, outer_cluster, neighbor)
+            if outer_cluster == - 2:
+                break
+            start_cluster = outer_cluster
+
+    def _find_left_neighbors(self, start_cluster_id):
+        left_neighbors = []
+
+        closed_loop = False
+        start_position = self.cluster_positions[start_cluster_id]
+        position = start_position
+        previous_position = start_position
+
+        while not closed_loop:
+            position, closed_loop, direction, previous_position = self._cluster_loop_step(position, previous_position,
+                                                                                          start_position)
+            x = position[0]
+            y = position[1]
+            cluster_up = self.cluster_id[x, (y - 1) % self.t]
+            cluster_right = self.cluster_id[(x + 1) % self.n, y]
+            cluster_down = self.cluster_id[x, (y + 1) % self.t]
+            cluster_left = self.cluster_id[(x - 1) % self.n, y]
+
+            # check left (right) neighbors of cluster and mark them as being in the same (own_id) group
+            # and recursively check their neighbors too
+            if direction == 0:
+                if cluster_left not in left_neighbors and cluster_left != start_cluster_id:
+                    left_neighbors.append(cluster_left)
+            elif direction == 1:
+                if cluster_up not in left_neighbors and cluster_up != start_cluster_id:
+                    left_neighbors.append(cluster_up)
+            elif direction == 2:
+                if cluster_right not in left_neighbors and cluster_right != start_cluster_id:
+                    left_neighbors.append(cluster_right)
+            elif direction == 3:
+                if cluster_down not in left_neighbors and cluster_down != start_cluster_id:
+                    left_neighbors.append(cluster_down)
+        return left_neighbors
+
+    def _has_as_right_neighbor(self, cluster, potential_right_neighbor_of_cluster):
+        is_neighbor = False
+
+        if cluster == potential_right_neighbor_of_cluster:
+            return False
+
+        closed_loop = False
+        start_position = self.cluster_positions[cluster]
+        position = start_position
+        previous_position = start_position
+
+        while not closed_loop:
+            position, closed_loop, direction, previous_position = self._cluster_loop_step(position, previous_position,
+                                                                                          start_position)
+            x = position[0]
+            y = position[1]
+            cluster_up = self.cluster_id[x, (y - 1) % self.t]
+            cluster_right = self.cluster_id[(x + 1) % self.n, y]
+            cluster_down = self.cluster_id[x, (y + 1) % self.t]
+            cluster_left = self.cluster_id[(x - 1) % self.n, y]
+
+            # check left (right) neighbors of cluster and mark them as being in the same (own_id) group
+            # and recursively check their neighbors too
+            if direction == 0:
+                if cluster_right == potential_right_neighbor_of_cluster:
+                    is_neighbor = True
+            elif direction == 1:
+                if cluster_down == potential_right_neighbor_of_cluster:
+                    is_neighbor = True
+            elif direction == 2:
+                if cluster_left == potential_right_neighbor_of_cluster:
+                    is_neighbor = True
+            elif direction == 3:
+                if cluster_up == potential_right_neighbor_of_cluster:
+                    is_neighbor = True
+        return is_neighbor
 
     def _calculate_combinations(self, start_cluster, plus_minus):
         result = np.array([0, 0])
@@ -666,8 +725,10 @@ class MeronAlgorithm:
         histogram = np.zeros(2 ** self.n_clusters)
         self.cluster_combinations = np.zeros((self.n_clusters, 2))
         self.cluster_group = np.full(self.n_clusters, -1)
+        for cluster in range(self.n_clusters):
+            self.cluster_order[cluster] = []
 
-        if len(self.charged_cluster_order) > 0:
+        if self.charged_clusters_exist:
             # if the charged cluster order begins with a negative charge, move the first charge to the back
             if self.cluster_charge[self.charged_cluster_order[0]] < 0:
                 charged_cluster_0 = self.charged_cluster_order[0]
@@ -694,18 +755,13 @@ class MeronAlgorithm:
                 histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
             self._calculate_charge_combinations()
 
-        elif len(self.horizontal_winding) > 0:
+        elif self.horizontally_winding_clusters_exist:
             raise NotImplementedError('horizontal winding')
             # TODO: look at ordering, what constraints does a horizontal charge give?
             self.correct_top_position_of_horizontally_winding_clusters()
         else:
             self._correct_left_positions_of_boundary_clusters()
-            self.left_neighbors.append(0)
-            self._left_neighbor(0)
-            # TODO: Don't know if this actually works, ordering not quite obvious
-            start_cluster = self.left_neighbors[-1]
-            self._group_neighboring_clusters(start_cluster, -2, start_cluster)
-            self._find_cluster_order(-2, -2)
+            self._assign_groups_only_neutrals()
             self.draw_bonds()
             plus_minus = self.cluster_positions[self.cluster_order[-2][0]][0] % 2
             total_combinations = self._calculate_combinations(-2, not plus_minus)
@@ -744,8 +800,8 @@ def main():
     beta = 1  # beta
     mc_steps = 1  # number of mc steps
     initial_mc_steps = 5000
-    w_a = 3 / 4  # np.exp(b/t)  # weight of a plaquettes U = t = 1
-    w_b = 1 / 4  # np.sinh(b/t)  # weight of b plaquettes
+    w_a = 2 / 4  # np.exp(b/t)  # weight of a plaquettes U = t = 1
+    w_b = 2 / 4  # np.sinh(b/t)  # weight of b plaquettes
 
     algorithm = MeronAlgorithm(n, t, w_a, w_b, beta, mc_steps)
 
