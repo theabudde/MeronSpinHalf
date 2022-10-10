@@ -518,6 +518,99 @@ class MeronAlgorithm:
         if not self._flips_are_zero(charged_cluster) and not np.any(self.flip[self.cluster_order[charged_cluster]]):
             self._generate_neutral_flips_no_zero(charged_cluster, boundary_charge, plus_minus)
 
+    def _automaton_one_charge_each(self, row, charge_index, case_character):
+        next_row = -1
+        arrow_weight = 0
+        charge = self.cluster_charge[self.charged_cluster_order[charge_index]]
+        pm_combinations = self.cluster_combinations[self.charged_cluster_order[charge_index]][0]
+        mp_combinations = self.cluster_combinations[self.charged_cluster_order[charge_index]][1]
+        last_charge_index = len(self.charged_cluster_order) - 1
+
+        match row:
+            case 0:
+                if charge_index < last_charge_index - 1:
+                    match case_character:
+                        case 0:
+                            next_row = 0
+                            arrow_weight = 1
+                        case 1:
+                            next_row = -1
+                            arrow_weight = pm_combinations
+                        case 2:
+                            next_row = 1
+                            arrow_weight = mp_combinations
+                        case 3:
+                            if charge > 1:
+                                next_row = -2
+                                arrow_weight = mp_combinations + 1
+                            else:
+                                next_row = 2
+                                arrow_weight = pm_combinations + 1
+                elif charge_index == last_charge_index - 1 and case_character == 3:
+                    next_row = -2
+                    arrow_weight = mp_combinations + 1
+            case -1:
+                if charge_index <= last_charge_index - 1:
+                    match case_character:
+                        case 1:
+                            next_row = -1
+                            arrow_weight = pm_combinations + 1
+                        case 3:
+                            if charge > 1:
+                                next_row = -2
+                                arrow_weight = mp_combinations + 1
+                elif charge_index == last_charge_index - 1 and case_character == 3:
+                    next_row = -2
+                    arrow_weight = mp_combinations + 1
+            case 1:
+                if charge_index <= last_charge_index - 2:
+                    match case_character:
+                        case 2:
+                            next_row = 1
+                            arrow_weight = mp_combinations + 1
+                        case 3:
+                            if charge < 1:
+                                next_row = 2
+                                arrow_weight = pm_combinations + 1
+                elif charge_index == last_charge_index - 2 and case_character == 3:
+                    next_row = 2
+                    arrow_weight = pm_combinations + 1
+            case -2:
+                if charge_index <= last_charge_index - 1:
+                    match case_character:
+                        case 2:
+                            next_row = -2
+                            arrow_weight = mp_combinations + 1
+                        case 3:
+                            if charge < 1:
+                                next_row = - 3
+                                arrow_weight = pm_combinations + 1
+                elif charge_index == last_charge_index - 2 and case_character == 3:
+                    next_row = 2
+                    arrow_weight = pm_combinations + 1
+            case 2:
+                if charge_index <= last_charge_index - 2:
+                    match case_character:
+                        case 1:
+                            next_row = 2
+                            arrow_weight = pm_combinations + 1
+                        case 3:
+                            if charge > 0:
+                                next_row = 3
+                                arrow_weight = mp_combinations + 1
+                elif charge_index == last_charge_index - 1 and case_character == 3:
+                    next_row = 3
+                    arrow_weight = mp_combinations + 1
+            case -3:
+                if case_character == 1:
+                    next_row = -3
+                    arrow_weight = pm_combinations + 1
+            case 3:
+                if case_character == 2:
+                    next_row = 3
+                    arrow_weight = mp_combinations + 1
+        return next_row, arrow_weight
+
     def _charge_automaton(self, row, charge_index, case_character):
         next_row = -1
         arrow_weight = 0
@@ -699,7 +792,7 @@ class MeronAlgorithm:
 
     def mc_step(self):
         n_flip_configs = 100000
-        seed = 2
+        seed = 0
         # for seed in range(0, 10000):
         random.seed(seed)
 
@@ -758,7 +851,6 @@ class MeronAlgorithm:
         elif self.horizontally_winding_clusters_exist:
             raise NotImplementedError('horizontal winding')
             # TODO: look at ordering, what constraints does a horizontal charge give?
-            self.correct_top_position_of_horizontally_winding_clusters()
         else:
             self._correct_left_positions_of_boundary_clusters()
             self._assign_groups_only_neutrals()
