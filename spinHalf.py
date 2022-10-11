@@ -1,4 +1,6 @@
 import random
+from abc import abstractmethod
+
 import numpy as np
 from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
@@ -6,6 +8,8 @@ from itertools import product
 
 
 class MeronAlgorithm:
+
+    @abstractmethod
     def __init__(self, n, t, w_a, w_b, beta, mc_steps):
         # constants
         self.n = n
@@ -27,16 +31,8 @@ class MeronAlgorithm:
         self.cluster_positions = {}
         # charge of each cluster in order cluster_id
         self.cluster_charge = np.array([0])
-        self.charged_clusters_exist = False
         # order of charged clusters only or if only neutrals exist, the horizontally winding clusters
         self.charged_cluster_order = []
-        # number of times a neutral cluster wraps horizontally
-        self.horizontal_winding = np.array([0])
-        self.horizontal_winding_order = []
-        self.horizontally_winding_clusters_exist = False
-        # if only non winding neutrals these are the left neighbors of the 0 cluster
-        # the first one will be an outermost cluster
-        self.left_neighbors = []
         # left neighbor going counterclockwise of every neutral cluster
         self.cluster_group = np.array([0])
         # order of nested neutral clusters indexed by their surrounding cluster/left charged neighbor
@@ -66,34 +62,16 @@ class MeronAlgorithm:
     #     return Bond()
 
     def _reset(self):
-        # positions of fermions
-        self.fermion = np.full((self.n, self.t), False)
-        # bond lattice, 0 is vertical plaquette A, 1 is horizontal plaquette B
-        self.bond = np.full((self.n, self.t), - 1)
-        # number of clusters in configuration
-        self.n_clusters = -1
         # cluster_id of the cluster in a given position
         self.cluster_id = np.full((self.n, self.t), -1)
         # top left most position of each cluster indexed by cluster_id
         self.cluster_positions = {}
-        # charge of each cluster in order cluster_id
-        self.cluster_charge = np.array([0])
+        self.charged_clusters_exist = False
         # order of charged clusters only or if only neutrals exist, the horizontally winding clusters
         self.charged_cluster_order = []
-        # number of times a neutral cluster wraps horizontally
-        self.horizontal_winding = np.array([0])
-        # if only non winding neutrals these are the left neighbors of the 0 cluster
-        # the first one will be an outermost cluster
-        self.left_neighbors = []
-        # left neighbor going counterclockwise of every neutral cluster
-        self.cluster_group = np.array([0])
         # order of nested neutral clusters indexed by their surrounding cluster/left charged neighbor
         self.cluster_order = {}
-        # saves the nr of flip possibilites for +- and -+ starting from the corresponding cluster
-        self.cluster_combinations = np.array([])
         self.flip = []
-        self.charge_combinations = np.array([])
-
         # fermion lattice initialized to reference configuration
         self.fermion = np.full((self.n, self.t), False)
         for i in range(self.n // 2):
@@ -101,7 +79,7 @@ class MeronAlgorithm:
                 self.fermion[2 * i, j] = True
 
     # Places vertical and horizontal bonds with probability corresponding to wa_ and  w_b
-    def _bond_assignment(self):
+    def _assign_bonds(self):
         for x, y in product(range(self.n), range(self.t)):
             if y % 2 != x % 2:
                 continue
@@ -177,6 +155,15 @@ class MeronAlgorithm:
                 cluster_nr += 1
         self.n_clusters = cluster_nr
 
+        # charge of each cluster in order cluster_id
+        self.cluster_charge = np.zeros(self.n_clusters)
+        # left neighbor going counterclockwise of every neutral cluster
+        self.cluster_group = np.full(self.n_clusters, -1)
+        # saves the nr of flip possibilites for +- and -+ starting from the corresponding cluster
+        self.cluster_combinations = np.zeros((self.n_clusters, 2))
+        for cluster in range(self.n_clusters):
+            self.cluster_order[cluster] = []
+
     def _cluster_loop_step(self, current_position, last_visited, start_of_loop):
         x = current_position[0]
         y = current_position[1]
@@ -232,39 +219,6 @@ class MeronAlgorithm:
             loop_closed = False
         return (x, y), loop_closed, direction, current_position
 
-    def tests(self, seed):
-        charge = np.zeros(self.n_clusters + 1)
-        for j in range(self.t):
-            for c in range(self.n_clusters + 1):
-                row_charge = 0
-                for i in range(self.n):
-                    if self.cluster_id[i, j] == c:
-                        if i % 2:
-                            row_charge += 1
-                        else:
-                            row_charge -= 1
-                if charge[c] != row_charge and j > 0:
-                    raise 'Charge varies over different rows'
-                charge[c] = row_charge
-        # print(charge)
-        if charge.sum() != 0:
-            raise 'Total charge not zero'
-
-        if np.amax(charge) > 1:
-            if np.count_nonzero(charge == np.amax(charge)) > 1:
-                print('multiple 2 windings')
-            for c in charge:
-                if abs(c) != np.amax(charge) and c != 0:
-                    raise 'clusters of different charges mixed'
-        if np.amax(charge) > 1:
-            print(np.amax(charge), seed)
-
-        for j in range(self.t):
-            for i in range(self.n - 2):
-                if self.cluster_id[i, j] != self.cluster_id[i + 1, j] and abs(charge[self.cluster_id[i, j]]) == abs(
-                        charge[self.cluster_id[i + 1, j]]) == 1:
-                    assert (charge[self.cluster_id[i, j]] != charge[self.cluster_id[i + 1, j]])
-
     def _identify_charged_clusters(self):
         # determine cluster's charges
         self.cluster_charge = np.zeros(self.n_clusters)
@@ -280,57 +234,11 @@ class MeronAlgorithm:
                                                                            i, 0] in self.charged_cluster_order:
                 self.charged_cluster_order.append(self.cluster_id[i, 0])
                 self.charged_clusters_exist = True
+        self.charge_combinations = np.zeros((self.n_clusters, 2))
 
-    def _identify_horizontal_winding(self):
-        # determine cluster's winding
-        self.horizontal_winding = np.zeros(self.n_clusters)
-        for i in range(self.t):
-            if i % 2:
-                self.horizontal_winding[self.cluster_id[0, i]] += 1
-            else:
-                self.horizontal_winding[self.cluster_id[0, i]] -= 1
-
-        # determine order of winding clusters
-        for i in range(self.t):
-            if self.horizontal_winding[self.cluster_id[0, i]] != 0 and not self.cluster_id[
-                                                                               0, i] in self.charged_cluster_order:
-                self.horizontal_winding_order.append(self.cluster_id[0, i])
-                self.cluster_positions[self.cluster_id[0, i]] = (0, i)
-                self.horizontally_winding_clusters_exist = True
-
-    def correct_left_position_of_charged_clusters(self):
-        # correct the charged one that is closest from the left to [0,0]
-        if len(self.charged_cluster_order) > 0:
-            # correct the top leftmost position of leftmost charged cluster
-            x = self.cluster_positions[self.charged_cluster_order[-1]][0]
-            while self.cluster_id[x, 0] != self.charged_cluster_order[0]:
-                x = (x + 1) % self.n
-            self.cluster_positions[self.charged_cluster_order[0]] = (x, 0)
-
-    def correct_top_position_of_horizontally_winding_clusters(self):
-        # correct the topmost position of topmost horizontally winding cluster
-        y = self.cluster_positions[self.charged_cluster_order[-1]][1]
-        while self.cluster_id[0, y] != self.charged_cluster_order[0]:
-            y = (y + 1) % self.t
-        self.cluster_positions[self.charged_cluster_order[1]] = (0, y)
-
-    def _correct_left_positions_of_boundary_clusters(self):
-        corrected = []
-        for j in range(self.t):
-            if not (self.cluster_id[0, j] in corrected) and self.cluster_charge[self.cluster_id[0, j]] == 0 and \
-                    self.horizontal_winding[self.cluster_id[0, j]] == 0:
-                position = (0, j)
-                previous_position = (0, j)
-                corrected.append(self.cluster_id[0, j])
-                closed_loop = False
-
-                while not closed_loop:
-                    position, closed_loop, direction, previous_position = self._cluster_loop_step(position,
-                                                                                                  previous_position,
-                                                                                                  (0, j))
-                    if direction == 3 and position[0] == (
-                            self.cluster_positions[self.cluster_id[position]][0] - 1) % self.n:
-                        self.cluster_positions[self.cluster_id[position]] = position
+    @abstractmethod
+    def _correct_positions(self):
+        pass
 
     def _assign_groups(self):
         # recursive identification of nearest left charge or surrounding cluster for all neutral clusters
@@ -375,104 +283,11 @@ class MeronAlgorithm:
             self.cluster_order[neighbor_group].append(neighbor_id)
             self._order_neighboring_clusters(neighbor_id, neighbor_group, neighbor_id)
 
-    def _assign_groups_only_neutrals(self):
-        self.cluster_order[-2] = []
-        start_cluster = 0
-        while True:
-            outer_cluster = -2
-            same_cluster_level = []
-            neighbors = self._find_left_neighbors(start_cluster)
-            for neighbor in neighbors:
-                if self._has_as_right_neighbor(neighbor, start_cluster):
-                    outer_cluster = neighbor
-                else:
-                    same_cluster_level.append(neighbor)
-            for neighbor in same_cluster_level:
-                if not neighbor == outer_cluster:
-                    if self.cluster_group[neighbor] == - 1:
-                        self.cluster_group[neighbor] = outer_cluster
-                        self.cluster_order[outer_cluster].append(neighbor)
-                        self._order_neighboring_clusters(neighbor, outer_cluster, neighbor)
-            if outer_cluster == - 2:
-                break
-            start_cluster = outer_cluster
-
-    def _find_left_neighbors(self, start_cluster_id):
-        left_neighbors = []
-
-        closed_loop = False
-        start_position = self.cluster_positions[start_cluster_id]
-        position = start_position
-        previous_position = start_position
-
-        while not closed_loop:
-            position, closed_loop, direction, previous_position = self._cluster_loop_step(position, previous_position,
-                                                                                          start_position)
-            x = position[0]
-            y = position[1]
-            cluster_up = self.cluster_id[x, (y - 1) % self.t]
-            cluster_right = self.cluster_id[(x + 1) % self.n, y]
-            cluster_down = self.cluster_id[x, (y + 1) % self.t]
-            cluster_left = self.cluster_id[(x - 1) % self.n, y]
-
-            # check left (right) neighbors of cluster and mark them as being in the same (own_id) group
-            # and recursively check their neighbors too
-            if direction == 0:
-                if cluster_left not in left_neighbors and cluster_left != start_cluster_id:
-                    left_neighbors.append(cluster_left)
-            elif direction == 1:
-                if cluster_up not in left_neighbors and cluster_up != start_cluster_id:
-                    left_neighbors.append(cluster_up)
-            elif direction == 2:
-                if cluster_right not in left_neighbors and cluster_right != start_cluster_id:
-                    left_neighbors.append(cluster_right)
-            elif direction == 3:
-                if cluster_down not in left_neighbors and cluster_down != start_cluster_id:
-                    left_neighbors.append(cluster_down)
-        return left_neighbors
-
-    def _has_as_right_neighbor(self, cluster, potential_right_neighbor_of_cluster):
-        is_neighbor = False
-
-        if cluster == potential_right_neighbor_of_cluster:
-            return False
-
-        closed_loop = False
-        start_position = self.cluster_positions[cluster]
-        position = start_position
-        previous_position = start_position
-
-        while not closed_loop:
-            position, closed_loop, direction, previous_position = self._cluster_loop_step(position, previous_position,
-                                                                                          start_position)
-            x = position[0]
-            y = position[1]
-            cluster_up = self.cluster_id[x, (y - 1) % self.t]
-            cluster_right = self.cluster_id[(x + 1) % self.n, y]
-            cluster_down = self.cluster_id[x, (y + 1) % self.t]
-            cluster_left = self.cluster_id[(x - 1) % self.n, y]
-
-            # check left (right) neighbors of cluster and mark them as being in the same (own_id) group
-            # and recursively check their neighbors too
-            if direction == 0:
-                if cluster_right == potential_right_neighbor_of_cluster:
-                    is_neighbor = True
-            elif direction == 1:
-                if cluster_down == potential_right_neighbor_of_cluster:
-                    is_neighbor = True
-            elif direction == 2:
-                if cluster_left == potential_right_neighbor_of_cluster:
-                    is_neighbor = True
-            elif direction == 3:
-                if cluster_up == potential_right_neighbor_of_cluster:
-                    is_neighbor = True
-        return is_neighbor
-
-    def _calculate_combinations(self, start_cluster, plus_minus):
+    def _calculate_neutral_combinations(self, start_cluster, plus_minus):
         result = np.array([0, 0])
         for i in range(len(self.cluster_order[start_cluster])):
             result = (result + 1) * (
-                    self._calculate_combinations(self.cluster_order[start_cluster][i], not plus_minus) + 1) - 1
+                    self._calculate_neutral_combinations(self.cluster_order[start_cluster][i], not plus_minus) + 1) - 1
         if self.cluster_charge[start_cluster] == 0:
             if plus_minus:
                 result = np.array([result[0] + result[1] + 1, result[1]])
@@ -518,206 +333,9 @@ class MeronAlgorithm:
         if not self._flips_are_zero(charged_cluster) and not np.any(self.flip[self.cluster_order[charged_cluster]]):
             self._generate_neutral_flips_no_zero(charged_cluster, boundary_charge, plus_minus)
 
-    def _automaton_one_charge_each(self, row, charge_index, case_character):
-        next_row = -1
-        arrow_weight = 0
-        charge = self.cluster_charge[self.charged_cluster_order[charge_index]]
-        pm_combinations = self.cluster_combinations[self.charged_cluster_order[charge_index]][0]
-        mp_combinations = self.cluster_combinations[self.charged_cluster_order[charge_index]][1]
-        last_charge_index = len(self.charged_cluster_order) - 1
-
-        match row:
-            case 0:
-                if charge_index < last_charge_index - 1:
-                    match case_character:
-                        case 0:
-                            next_row = 0
-                            arrow_weight = 1
-                        case 1:
-                            next_row = -1
-                            arrow_weight = pm_combinations
-                        case 2:
-                            next_row = 1
-                            arrow_weight = mp_combinations
-                        case 3:
-                            if charge > 1:
-                                next_row = -2
-                                arrow_weight = mp_combinations + 1
-                            else:
-                                next_row = 2
-                                arrow_weight = pm_combinations + 1
-                elif charge_index == last_charge_index - 1 and case_character == 3:
-                    next_row = -2
-                    arrow_weight = mp_combinations + 1
-            case -1:
-                if charge_index <= last_charge_index - 1:
-                    match case_character:
-                        case 1:
-                            next_row = -1
-                            arrow_weight = pm_combinations + 1
-                        case 3:
-                            if charge > 1:
-                                next_row = -2
-                                arrow_weight = mp_combinations + 1
-                elif charge_index == last_charge_index - 1 and case_character == 3:
-                    next_row = -2
-                    arrow_weight = mp_combinations + 1
-            case 1:
-                if charge_index <= last_charge_index - 2:
-                    match case_character:
-                        case 2:
-                            next_row = 1
-                            arrow_weight = mp_combinations + 1
-                        case 3:
-                            if charge < 1:
-                                next_row = 2
-                                arrow_weight = pm_combinations + 1
-                elif charge_index == last_charge_index - 2 and case_character == 3:
-                    next_row = 2
-                    arrow_weight = pm_combinations + 1
-            case -2:
-                if charge_index <= last_charge_index - 1:
-                    match case_character:
-                        case 2:
-                            next_row = -2
-                            arrow_weight = mp_combinations + 1
-                        case 3:
-                            if charge < 1:
-                                next_row = - 3
-                                arrow_weight = pm_combinations + 1
-                elif charge_index == last_charge_index - 2 and case_character == 3:
-                    next_row = 2
-                    arrow_weight = pm_combinations + 1
-            case 2:
-                if charge_index <= last_charge_index - 2:
-                    match case_character:
-                        case 1:
-                            next_row = 2
-                            arrow_weight = pm_combinations + 1
-                        case 3:
-                            if charge > 0:
-                                next_row = 3
-                                arrow_weight = mp_combinations + 1
-                elif charge_index == last_charge_index - 1 and case_character == 3:
-                    next_row = 3
-                    arrow_weight = mp_combinations + 1
-            case -3:
-                if case_character == 1:
-                    next_row = -3
-                    arrow_weight = pm_combinations + 1
-            case 3:
-                if case_character == 2:
-                    next_row = 3
-                    arrow_weight = mp_combinations + 1
-        return next_row, arrow_weight
-
+    @abstractmethod
     def _charge_automaton(self, row, charge_index, case_character):
-        next_row = -1
-        arrow_weight = 0
-        charge = self.cluster_charge[self.charged_cluster_order[charge_index]]
-        pm_combinations = self.cluster_combinations[self.charged_cluster_order[charge_index]][0]
-        mp_combinations = self.cluster_combinations[self.charged_cluster_order[charge_index]][1]
-        match row:
-            case 0:
-                if case_character == 0:
-                    if charge_index == len(self.charged_cluster_order) - 1 or charge_index == 0:
-                        next_row = -1
-                    else:
-                        next_row = 1
-                    if charge > 0:
-                        arrow_weight = pm_combinations + 1
-                    else:
-                        arrow_weight = mp_combinations + 1
-                elif case_character == 1:
-                    if charge_index == 0:
-                        next_row = -1
-                    elif charge > 0:
-                        next_row = 0
-                        arrow_weight = mp_combinations + 1
-                    else:
-                        next_row = 0
-                        arrow_weight = pm_combinations + 1
-            case 1:
-                if charge_index == 0:
-                    next_row = -1
-                elif case_character == 0:
-                    next_row = 0
-                    if charge > 0:
-                        arrow_weight = mp_combinations + 1
-                    else:
-                        arrow_weight = pm_combinations + 1
-                else:
-                    next_row = -1
-            case 2:
-                match case_character:
-                    case 0:
-                        next_row = 2
-                        arrow_weight = 1
-                    case 1:
-                        if charge_index == len(self.charged_cluster_order) - 1:
-                            next_row = 2
-                            arrow_weight = pm_combinations
-                        elif charge > 0:
-                            next_row = 1
-                            arrow_weight = pm_combinations
-                        else:
-                            next_row = 0
-                            arrow_weight = pm_combinations
-                    case 2:
-                        if charge_index == len(self.charged_cluster_order) - 1:
-                            next_row = 2
-                            arrow_weight = mp_combinations
-                        elif charge > 0:
-                            next_row = 3
-                            arrow_weight = mp_combinations
-                        else:
-                            next_row = 4
-                            arrow_weight = mp_combinations
-                    case 3:
-                        if charge_index == len(self.charged_cluster_order) - 1:
-                            next_row = -1
-                        elif charge > 0:
-                            next_row = 0
-                            arrow_weight = mp_combinations + 1
-                        else:
-                            next_row = 3
-                            arrow_weight = pm_combinations + 1
-            case 3:
-                if charge_index == 0:
-                    next_row = -1
-                elif case_character == 0:
-                    if charge_index == len(self.charged_cluster_order) - 2:
-                        next_row = -1
-                    elif charge_index == len(self.charged_cluster_order) - 1:
-                        next_row = 3
-                        arrow_weight = mp_combinations + 1
-                    elif charge > 0:
-                        next_row = 4
-                        arrow_weight = pm_combinations + 1
-                    else:
-                        next_row = 4
-                        arrow_weight = mp_combinations + 1
-                else:
-                    if charge_index == len(self.charged_cluster_order) - 1:
-                        next_row = -1
-                    elif charge > 0:
-                        next_row = 3
-                        arrow_weight = mp_combinations + 1
-                    else:
-                        next_row = 3
-                        arrow_weight = pm_combinations + 1
-            case 4:
-                if charge_index == 0 or charge_index == 0 or charge_index == len(self.charged_cluster_order) - 1:
-                    next_row = -1
-                elif case_character == 0:
-                    next_row = 3
-                    if charge > 0:
-                        arrow_weight = mp_combinations + 1
-                    else:
-                        arrow_weight = pm_combinations + 1
-                else:
-                    next_row = -1
-        return next_row, arrow_weight
+        pass
 
     def _calculate_charge_combinations(self):
         self.charge_combinations = np.full((5, len(self.charged_cluster_order) + 1, 4), 0)
@@ -742,7 +360,7 @@ class MeronAlgorithm:
                             self.charge_combinations[row, charge_index, case_character] += weight * np.sum(
                                 self.charge_combinations[next_row, charge_index + 1])
 
-    def _generate_charged_flips(self):
+    def _generate_flips(self):
         row = 2
         for charge_idx in range(len(self.charged_cluster_order)):
             charge = self.charged_cluster_order[charge_idx]
@@ -790,116 +408,17 @@ class MeronAlgorithm:
 
             row, weight = self._charge_automaton(row, charge_idx, case_character)
 
-    def mc_step(self):
-        n_flip_configs = 100000
-        seed = 0
-        # for seed in range(0, 10000):
-        random.seed(seed)
-
-        # reset to reference config
-        self._reset()
-
-        # place new bonds
-        self._bond_assignment()
-
-        # find clusters
-        self._find_clusters()
-
-        # draw config for debug
-        self.draw_bonds()
-
-        # optional: run tests to verify hypothesis of cluster structure (very slow)
-        # self.tests(seed)
-
-        self._identify_charged_clusters()
-        self._identify_horizontal_winding()
-
-        self.flip = np.zeros(self.n_clusters)
-        histogram = np.zeros(2 ** self.n_clusters)
-        self.cluster_combinations = np.zeros((self.n_clusters, 2))
-        self.cluster_group = np.full(self.n_clusters, -1)
-        for cluster in range(self.n_clusters):
-            self.cluster_order[cluster] = []
-
-        if self.charged_clusters_exist:
-            # if the charged cluster order begins with a negative charge, move the first charge to the back
-            if self.cluster_charge[self.charged_cluster_order[0]] < 0:
-                charged_cluster_0 = self.charged_cluster_order[0]
-                for i in range(len(self.charged_cluster_order) - 1):
-                    self.charged_cluster_order[i] = self.charged_cluster_order[i + 1]
-                self.charged_cluster_order[-1] = charged_cluster_0
-
-            self.correct_left_position_of_charged_clusters()
-            self._correct_left_positions_of_boundary_clusters()
-
-            self._assign_groups()
-            # draw config for debug
-            self.draw_bonds()
-            # calculate the cluster combinations
-            for charge in self.charged_cluster_order:
-                if self.cluster_charge[charge] > 0:
-                    self._calculate_combinations(charge, True)
-                else:
-                    self._calculate_combinations(charge, False)
-            self._calculate_charge_combinations()
-            for i in range(n_flip_configs):
-                self.flip = np.zeros(self.n_clusters)
-                self._generate_charged_flips()
-                histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
-            self._calculate_charge_combinations()
-
-        elif self.horizontally_winding_clusters_exist:
-            raise NotImplementedError('horizontal winding')
-            # TODO: look at ordering, what constraints does a horizontal charge give?
-        else:
-            self._correct_left_positions_of_boundary_clusters()
-            self._assign_groups_only_neutrals()
-            self.draw_bonds()
-            plus_minus = self.cluster_positions[self.cluster_order[-2][0]][0] % 2
-            total_combinations = self._calculate_combinations(-2, not plus_minus)
-            if plus_minus:
-                total_combinations[1] -= total_combinations[0] + 1
-            else:
-                total_combinations[0] -= total_combinations[1] + 1
-            p_plus_minus = (total_combinations[0] + 1) / (total_combinations[0] + total_combinations[1] + 2)
-            for i in range(n_flip_configs):
-                while True:
-                    self.flip = np.zeros(self.n_clusters)
-                    if random.random() < p_plus_minus:
-                        charge = -1
-                        self._generate_neutral_flips(-2, charge, plus_minus)
-                    else:
-                        charge = 1
-                        self._generate_neutral_flips(-2, charge, plus_minus)
-                    if not int("".join(str(int(k)) for k in self.flip)) == 0 or random.random() < 0.5:
-                        break
-                histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
-        plt.plot(histogram, ".")
-        plt.ylim(bottom=0)
-        plt.xlim(left=0)
-        plt.grid()
-        plt.show()
-
-        # draw config for debug
-        self.draw_bonds()
-
+    # TODO do actual flipping
+    def _flip(self):
         pass
 
-
-def main():
-    n = 12  # number of lattice points
-    t = 12  # number of half time steps (#even + #odd)
-    beta = 1  # beta
-    mc_steps = 1  # number of mc steps
-    initial_mc_steps = 5000
-    w_a = 2 / 4  # np.exp(b/t)  # weight of a plaquettes U = t = 1
-    w_b = 2 / 4  # np.sinh(b/t)  # weight of b plaquettes
-
-    algorithm = MeronAlgorithm(n, t, w_a, w_b, beta, mc_steps)
-
-    for mc in range(mc_steps):
-        algorithm.mc_step()
-
-
-if __name__ == "__main__":
-    main()
+    def mc_step(self):
+        self._assign_bonds()
+        self._reset()
+        self._find_clusters()
+        self._identify_charged_clusters()
+        self._correct_positions()
+        self._assign_groups()
+        self._calculate_neutral_combinations(self.charged_cluster_order[0], self.charged_cluster_order[0] < 0)
+        self._generate_flips()
+        self._flip()

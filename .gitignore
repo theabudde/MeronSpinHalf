@@ -2,3 +2,5 @@
 .idea/
 
 config.jpg
+
+__pycache__/
