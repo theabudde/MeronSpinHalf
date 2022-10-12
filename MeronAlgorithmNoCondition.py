@@ -1,4 +1,4 @@
-from spinHalf import MeronAlgorithm
+from MeronAlgorithm import MeronAlgorithm
 import numpy as np
 from itertools import product
 import matplotlib.pyplot as plt
@@ -244,37 +244,6 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
                     next_row = -1
         return next_row, arrow_weight
 
-    def correct_left_position_of_charged_clusters(self):
-        # correct the charged one that is closest from the left to [0,0]
-        if len(self.charged_cluster_order) > 0:
-            # correct the top leftmost position of leftmost charged cluster
-            x = self.cluster_positions[self.charged_cluster_order[-1]][0]
-            while self.cluster_id[x, 0] != self.charged_cluster_order[0]:
-                x = (x + 1) % self.n
-            self.cluster_positions[self.charged_cluster_order[0]] = (x, 0)
-
-    def _correct_positions(self):
-        self.correct_left_position_of_charged_clusters()
-        self._correct_left_positions_of_boundary_clusters()
-
-    def _correct_left_positions_of_boundary_clusters(self):
-        corrected = []
-        for j in range(self.t):
-            if not (self.cluster_id[0, j] in corrected) and self.cluster_charge[self.cluster_id[0, j]] == 0 and \
-                    self.horizontal_winding[self.cluster_id[0, j]] == 0:
-                position = (0, j)
-                previous_position = (0, j)
-                corrected.append(self.cluster_id[0, j])
-                closed_loop = False
-
-                while not closed_loop:
-                    position, closed_loop, direction, previous_position = self._cluster_loop_step(position,
-                                                                                                  previous_position,
-                                                                                                  (0, j))
-                    if direction == 3 and position[0] == (
-                            self.cluster_positions[self.cluster_id[position]][0] - 1) % self.n:
-                        self.cluster_positions[self.cluster_id[position]] = position
-
     def mc_step(self):
         n_flip_configs = 100000
         seed = 1
@@ -299,13 +268,6 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
         histogram = np.zeros(2 ** self.n_clusters)
 
         if self.charged_clusters_exist:
-            # if the charged cluster order begins with a negative charge, move the first charge to the back
-            if self.cluster_charge[self.charged_cluster_order[0]] < 0:
-                charged_cluster_0 = self.charged_cluster_order[0]
-                for i in range(len(self.charged_cluster_order) - 1):
-                    self.charged_cluster_order[i] = self.charged_cluster_order[i + 1]
-                self.charged_cluster_order[-1] = charged_cluster_0
-
             self.correct_left_position_of_charged_clusters()
             self._correct_left_positions_of_boundary_clusters()
 
@@ -323,13 +285,12 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
                 self.flip = np.zeros(self.n_clusters)
                 self._generate_flips()
                 histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
-            self._calculate_charge_combinations()
 
         elif self.horizontally_winding_clusters_exist:
             raise NotImplementedError('horizontal winding')
             # TODO: look at ordering, what constraints does a horizontal charge give?
         else:
-            self._correct_left_positions_of_boundary_clusters()
+            self._correct_positions()
             self._assign_groups_only_neutrals()
             plus_minus = self.cluster_positions[self.cluster_order[-2][0]][0] % 2
             total_combinations = self._calculate_neutral_combinations(-2, not plus_minus)

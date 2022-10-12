@@ -22,7 +22,7 @@ class MeronAlgorithm:
         # positions of fermions
         self.fermion = np.full((self.n, self.t), False)
         # bond lattice, 0 is vertical plaquette A, 1 is horizontal plaquette B
-        self.bond = np.full((self.n, self.t), - 1)
+        self.bond = np.zeros((self.n, self.t))
         # number of clusters in configuration
         self.n_clusters = -1
         # cluster_id of the cluster in a given position
@@ -82,9 +82,9 @@ class MeronAlgorithm:
     def _assign_bonds(self):
         for x, y in product(range(self.n), range(self.t)):
             if y % 2 != x % 2:
-                continue
+                self.bond[x, y] = - 1
             # all occupied or all unoccupied
-            if self.fermion[x, y] == self.fermion[(x + 1) % self.n, y] \
+            elif self.fermion[x, y] == self.fermion[(x + 1) % self.n, y] \
                     and self.fermion[x, (y + 1) % self.t] == self.fermion[(x + 1) % self.n, (y + 1) % self.t]:
                 self.bond[x, y] = False
             # diagonal occupation
@@ -163,6 +163,7 @@ class MeronAlgorithm:
         self.cluster_combinations = np.zeros((self.n_clusters, 2))
         for cluster in range(self.n_clusters):
             self.cluster_order[cluster] = []
+        self.flip = np.zeros(self.n_clusters)
 
     def _cluster_loop_step(self, current_position, last_visited, start_of_loop):
         x = current_position[0]
@@ -236,9 +237,29 @@ class MeronAlgorithm:
                 self.charged_clusters_exist = True
         self.charge_combinations = np.zeros((self.n_clusters, 2))
 
-    @abstractmethod
     def _correct_positions(self):
-        pass
+        # correct the charged one that is closest from the left to [0,0]
+        if len(self.charged_cluster_order) > 0:
+            # correct the top leftmost position of leftmost charged cluster
+            x = self.cluster_positions[self.charged_cluster_order[-1]][0]
+            while self.cluster_id[x, 0] != self.charged_cluster_order[0]:
+                x = (x + 1) % self.n
+            self.cluster_positions[self.charged_cluster_order[0]] = (x, 0)
+        corrected = []
+        for j in range(self.t):
+            if not (self.cluster_id[0, j] in corrected) and self.cluster_charge[self.cluster_id[0, j]] == 0:
+                position = (0, j)
+                previous_position = (0, j)
+                corrected.append(self.cluster_id[0, j])
+                closed_loop = False
+
+                while not closed_loop:
+                    position, closed_loop, direction, previous_position = self._cluster_loop_step(position,
+                                                                                                  previous_position,
+                                                                                                  (0, j))
+                    if direction == 3 and position[0] == (
+                            self.cluster_positions[self.cluster_id[position]][0] - 1) % self.n:
+                        self.cluster_positions[self.cluster_id[position]] = position
 
     def _assign_groups(self):
         # recursive identification of nearest left charge or surrounding cluster for all neutral clusters
@@ -285,14 +306,17 @@ class MeronAlgorithm:
 
     def _calculate_neutral_combinations(self, start_cluster, plus_minus):
         result = np.array([0, 0])
+        # multiply out product for clusters in the same level
         for i in range(len(self.cluster_order[start_cluster])):
             result = (result + 1) * (
                     self._calculate_neutral_combinations(self.cluster_order[start_cluster][i], not plus_minus) + 1) - 1
+        # calculate the effect of the loop
         if self.cluster_charge[start_cluster] == 0:
             if plus_minus:
                 result = np.array([result[0] + result[1] + 1, result[1]])
             else:
                 result = np.array([result[0], result[0] + result[1] + 1])
+        # save result
         if start_cluster >= 0:
             self.cluster_combinations[start_cluster] = result
         return result
@@ -410,15 +434,49 @@ class MeronAlgorithm:
 
     # TODO do actual flipping
     def _flip(self):
-        pass
+        for i in range(self.n_clusters):
+            if self.flip[i]:
+                start_position = self.cluster_positions[i]
+                new_coordinates = start_position
+                previous_coordinates = start_position
+                loop_closed = False
+                while not loop_closed:
+                    new_coordinates, loop_closed, direction, previous_coordinates = self._cluster_loop_step(
+                        new_coordinates, previous_coordinates, start_position)
+                    self.fermion[new_coordinates] = not self.fermion[new_coordinates]
 
     def mc_step(self):
         self._assign_bonds()
+        self.draw_bonds()
         self._reset()
         self._find_clusters()
         self._identify_charged_clusters()
         self._correct_positions()
         self._assign_groups()
-        self._calculate_neutral_combinations(self.charged_cluster_order[0], self.charged_cluster_order[0] < 0)
-        self._generate_flips()
+        self.draw_bonds()
+        for charge in self.charged_cluster_order:
+            self.cluster_combinations[charge] = self._calculate_neutral_combinations(charge,
+                                                                                     self.cluster_charge[charge] > 0)
+        # if the charged cluster order begins with a negative charge, move the first charge to the back
+        if self.cluster_charge[self.charged_cluster_order[0]] < 0:
+            charged_cluster_0 = self.charged_cluster_order[0]
+            for i in range(len(self.charged_cluster_order) - 1):
+                self.charged_cluster_order[i] = self.charged_cluster_order[i + 1]
+            self.charged_cluster_order[-1] = charged_cluster_0
+        self._calculate_charge_combinations()
+
+        n_flip_configs = 100000
+        histogram = np.zeros(2 ** self.n_clusters)
+        for i in range(n_flip_configs):
+            self.flip = np.zeros(self.n_clusters)
+            self._generate_flips()
+            histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
+
         self._flip()
+
+        plt.plot(histogram, ".")
+        plt.ylim(bottom=0)
+        plt.xlim(left=0)
+        plt.grid()
+        plt.show()
+        pass
