@@ -2,14 +2,12 @@ import random
 from MeronAlgorithm import MeronAlgorithm
 import numpy as np
 from itertools import product
+import matplotlib.pyplot as plt
 
 
 class MeronAlgorithmOneFixedCharge(MeronAlgorithm):
     def __init__(self, n, t, w_a, w_b, beta, mc_steps):
         MeronAlgorithm.__init__(self, n, t, w_a, w_b, beta, mc_steps)
-        for y in range(self.t):
-            self.fermion[0, y] = False
-            self.fermion[3, y] = True
 
     # Places vertical and horizontal bonds with probability corresponding to wa_ and  w_b
     def _assign_bonds(self):
@@ -29,7 +27,7 @@ class MeronAlgorithmOneFixedCharge(MeronAlgorithm):
             else:
                 self.bond[x, y] = False if random.random() < self.w_a / (self.w_a + self.w_b) else True
 
-    def _charge_automaton(self, row, charge_index, case_character):
+    def _charge_automaton_depricated(self, row, charge_index, case_character):
         next_row = -1
         arrow_weight = 0
         charge = self.cluster_charge[self.charged_cluster_order[charge_index]]
@@ -122,22 +120,51 @@ class MeronAlgorithmOneFixedCharge(MeronAlgorithm):
                     arrow_weight = mp_combinations + 1
         return next_row, arrow_weight
 
+    def _charge_automaton(self, row, charge_index, case_character):
+        next_row = -1
+        arrow_weight = 0
+        charge = self.cluster_charge[self.charged_cluster_order[charge_index]]
+        pm_combinations = self.cluster_combinations[self.charged_cluster_order[charge_index]][0]
+        mp_combinations = self.cluster_combinations[self.charged_cluster_order[charge_index]][1]
+        last_charge_index = len(self.charged_cluster_order) - 1
+        if row == 0:
+            if case_character == 1:
+                next_row = 0
+                if charge > 0:
+                    arrow_weight = mp_combinations + 1
+                else:
+                    arrow_weight = pm_combinations + 1
+            elif case_character == 0 and not charge_index == last_charge_index:
+                next_row = 1
+                if charge > 0:
+                    arrow_weight = pm_combinations + 1
+                else:
+                    arrow_weight = mp_combinations + 1
+        elif row == 1:
+            if case_character == 0:
+                next_row = 0
+                if charge > 0:
+                    arrow_weight = mp_combinations + 1
+                else:
+                    arrow_weight = pm_combinations + 1
+        return next_row, arrow_weight
+
     def _calculate_charge_combinations(self):
-        self.charge_combinations = np.full((7, len(self.charged_cluster_order) + 1, 4), 0)
+        self.charge_combinations = np.full((2, len(self.charged_cluster_order) + 1, 2), 0)
 
         # define legal final states
-        self.charge_combinations[-3, -1, 0] = 1
-        self.charge_combinations[3, -1, 0] = 1
+        self.charge_combinations[0, -1, 0] = 1
 
         for charge_index in range(len(self.charged_cluster_order) - 1, -1, -1):
-            for row in range(-3, 4, 1):
-                for case_character in range(4):
+            for row in range(2):
+                for case_character in range(2):
                     next_row, weight = self._charge_automaton(row, charge_index, case_character)
                     if not weight == 0:
                         self.charge_combinations[row, charge_index, case_character] += weight * np.sum(
                             self.charge_combinations[next_row, charge_index + 1])
 
-    def _generate_flips(self):
+    # TODO
+    def _generate_flips_depricated(self):
         row = 0
         for charge_idx in range(len(self.charged_cluster_order)):
             charge = self.charged_cluster_order[charge_idx]
@@ -161,3 +188,59 @@ class MeronAlgorithmOneFixedCharge(MeronAlgorithm):
                                                  self.cluster_charge[charge] < 0)
 
             row, weight = self._charge_automaton(row, charge_idx, case_character)
+
+    def _generate_flips(self):
+        row = 0
+        self._generate_neutral_flips(0, -1, True)
+        self.flip[0] = 1
+        for charge_idx in range(len(self.charged_cluster_order)):
+            charge = self.charged_cluster_order[charge_idx]
+            case_character = random.choices(range(2), weights=self.charge_combinations[row, charge_idx])[0]
+            match case_character:
+                case 0:
+                    if row == 0:
+                        self._generate_neutral_flips(charge, - self.cluster_charge[charge],
+                                                     self.cluster_charge[charge] < 0)
+                    elif row == 1:
+                        self._generate_neutral_flips(charge, self.cluster_charge[charge],
+                                                     self.cluster_charge[charge] < 0)
+                case 1:
+                    if row == 0:
+                        self.flip[charge] = 1
+                        self._generate_neutral_flips(charge, self.cluster_charge[charge],
+                                                     self.cluster_charge[charge] < 0)
+                    else:
+                        raise ('case 1 in row one')
+
+            row, weight = self._charge_automaton(row, charge_idx, case_character)
+
+    def mc_step(self):
+        self._assign_bonds()
+        self.draw_bonds()
+        self._reset()
+        self._find_clusters()
+        self._identify_charged_clusters()
+        self._correct_positions()
+        self._assign_groups()
+        self.draw_bonds()
+        for charge in self.charged_cluster_order:
+            self.cluster_combinations[charge] = self._calculate_neutral_combinations(charge,
+                                                                                     self.cluster_charge[charge] > 0)
+        self.charged_cluster_order = self.charged_cluster_order[1:]
+        self._calculate_charge_combinations()
+
+        n_flip_configs = 100000
+        histogram = np.zeros(2 ** self.n_clusters)
+        for i in range(n_flip_configs):
+            self.flip = np.zeros(self.n_clusters)
+            self._generate_flips()
+            histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
+
+        self._flip()
+
+        plt.plot(histogram, ".")
+        plt.ylim(bottom=0)
+        plt.xlim(left=0)
+        plt.grid()
+        plt.show()
+        pass
