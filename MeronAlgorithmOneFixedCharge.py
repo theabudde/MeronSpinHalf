@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 
 class MeronAlgorithmOneFixedCharge(MeronAlgorithm):
-    def __init__(self, n, t, w_a, w_b, beta, mc_steps):
-        MeronAlgorithm.__init__(self, n, t, w_a, w_b, beta, mc_steps)
+    def __init__(self, n, t, w_a, w_b, w_c, beta, mc_steps):
+        MeronAlgorithm.__init__(self, n, t, w_a, w_b, w_c, beta, mc_steps)
 
     # Places vertical and horizontal bonds with probability corresponding to wa_ and  w_b
     def _assign_bonds(self):

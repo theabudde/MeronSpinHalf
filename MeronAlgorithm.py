@@ -10,12 +10,13 @@ from itertools import product
 class MeronAlgorithm:
 
     @abstractmethod
-    def __init__(self, n, t, w_a, w_b, beta, mc_steps):
+    def __init__(self, n, t, w_a, w_b, w_c, beta, mc_steps):
         # constants
         self.n = n
         self.t = t
         self.w_a = w_a
         self.w_b = w_b
+        self.w_c = w_c
         self.beta = beta
         self.mc_steps = mc_steps
 
@@ -444,6 +445,9 @@ class MeronAlgorithm:
                     new_coordinates, loop_closed, direction, previous_coordinates = self._cluster_loop_step(
                         new_coordinates, previous_coordinates, start_position)
                     self.fermion[new_coordinates] = not self.fermion[new_coordinates]
+
+    def _calculate_partition_function(self, Z_before):
+        pass
 
     def mc_step(self):
         self._assign_bonds()

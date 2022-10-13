@@ -1,4 +1,5 @@
 from MeronAlgorithmOneFixedCharge import MeronAlgorithmOneFixedCharge
+from MeronAlgorithmTwoFixedCharges import MeronAlgorithmTwoFixedCharges
 
 
 def main():
@@ -9,8 +10,8 @@ def main():
     initial_mc_steps = 5000
     w_a = 2 / 4  # np.exp(b/t)  # weight of a plaquettes U = t = 1
     w_b = 2 / 4  # np.sinh(b/t)  # weight of b plaquettes
-
-    algorithm = MeronAlgorithmOneFixedCharge(n, t, w_a, w_b, beta, mc_steps)
+    w_c = 0
+    algorithm = MeronAlgorithmTwoFixedCharges(n, t, w_a, w_b, w_c, beta, mc_steps)
 
     for mc in range(mc_steps):
         algorithm.mc_step()
