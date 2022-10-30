@@ -146,7 +146,15 @@ class MeronAlgorithm:
                 while True:
                     visited[new_coordinates] = True
                     self.cluster_id[new_coordinates] = cluster_nr  # give cluster its ID
+                    previous_coordinates = new_coordinates
                     new_coordinates = self._cluster_loop_step_new(new_coordinates)
+                    # correct position to be leftmost and at the top of a leftmost edge of the cluster
+                    if (new_coordinates[0] == (self.cluster_positions[cluster_nr][0] - 1) % self.n
+                        and new_coordinates[0] == (previous_coordinates[0] - 1) % self.n) \
+                            or (new_coordinates[1] == (previous_coordinates[1] - 1) % self.t
+                                and new_coordinates[0] == self.cluster_positions[cluster_nr][0]
+                                and new_coordinates[1] == (self.cluster_positions[cluster_nr][1] - 1) % self.t):
+                        self.cluster_positions[cluster_nr] = new_coordinates
                     if new_coordinates == (x, y):
                         break
                 # look where to find next cluster
@@ -177,6 +185,8 @@ class MeronAlgorithm:
         right = (x + 1) % self.n, y
         down = x, (y + 1) % self.t
         left = (x - 1) % self.n, y
+
+        current_cluster = self.cluster_id[current_position]
 
         # if occupied
         if current_position[0] % 2 == 0:
@@ -286,9 +296,7 @@ class MeronAlgorithm:
                     previous_position = position
                     position = self._cluster_loop_step_new(position)
                     going_left = (previous_position[0] == (position[0] + 1) % self.n)
-                    if going_left and position[0] == (
-                            self.cluster_positions[self.cluster_id[position]][0] - 1) % self.n:
-                        self.cluster_positions[self.cluster_id[position]] = position
+
                     if position == start_position:
                         break
 

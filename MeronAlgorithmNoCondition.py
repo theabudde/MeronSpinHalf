@@ -49,11 +49,14 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
         start_cluster = 0
         while True:
             outer_cluster = -2
-            left_neighbors = self._find_left_neighbors(start_cluster)
-            for neighbor in left_neighbors:
+            same_cluster_level = []
+            neighbors = self._find_left_neighbors(start_cluster)
+            for neighbor in neighbors:
                 if self._has_as_right_neighbor(neighbor, start_cluster):
                     outer_cluster = neighbor
-            for neighbor in left_neighbors:
+                else:
+                    same_cluster_level.append(neighbor)
+            for neighbor in same_cluster_level:
                 if not neighbor == outer_cluster:
                     if self.cluster_group[neighbor] == - 1:
                         self.cluster_group[neighbor] = outer_cluster
@@ -65,11 +68,15 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
 
     def _find_left_neighbors(self, start_cluster_id):
         left_neighbors = []
+
+        closed_loop = False
         start_position = self.cluster_positions[start_cluster_id]
         position = start_position
-        while True:
-            position = self._cluster_loop_step_new(position)
+        previous_position = start_position
 
+        while not closed_loop:
+            position, closed_loop, direction, previous_position = self._cluster_loop_step(position, previous_position,
+                                                                                          start_position)
             x = position[0]
             y = position[1]
             cluster_up = self.cluster_id[x, (y - 1) % self.t]
@@ -77,23 +84,21 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
             cluster_down = self.cluster_id[x, (y + 1) % self.t]
             cluster_left = self.cluster_id[(x - 1) % self.n, y]
 
-            for neighbor in [cluster_up, cluster_right, cluster_down, cluster_left]:
-                if neighbor != start_cluster_id:
-                    if self.cluster_positions[neighbor][0] % 2 == self.cluster_positions[start_cluster_id][0] % 2:
-                        # is a left neighbor
-                        if neighbor not in left_neighbors:
-                            left_neighbors.append(neighbor)
-            if position == start_position:
-                break
+            # check left (right) neighbors of cluster and mark them as being in the same (own_id) group
+            # and recursively check their neighbors too
+            if direction == 0:
+                if cluster_left not in left_neighbors and cluster_left != start_cluster_id:
+                    left_neighbors.append(cluster_left)
+            elif direction == 1:
+                if cluster_up not in left_neighbors and cluster_up != start_cluster_id:
+                    left_neighbors.append(cluster_up)
+            elif direction == 2:
+                if cluster_right not in left_neighbors and cluster_right != start_cluster_id:
+                    left_neighbors.append(cluster_right)
+            elif direction == 3:
+                if cluster_down not in left_neighbors and cluster_down != start_cluster_id:
+                    left_neighbors.append(cluster_down)
         return left_neighbors
-
-    # Has to be direct neighbor already, this only checks whether this is a right and not a left neighbor
-    def _has_as_right_neighbor(self, cluster, potential_right_neighbor_of_cluster):
-        if cluster == potential_right_neighbor_of_cluster:
-            return False
-        if self.cluster_positions[cluster][0] % 2 != self.cluster_positions[potential_right_neighbor_of_cluster][0] % 2:
-            return True
-        return False
 
     def _charge_automaton(self, row, charge_index, case_character):
         next_row = -1
@@ -231,7 +236,7 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
         histogram = np.zeros(2 ** self.n_clusters)
 
         if self.charged_clusters_exist:
-            self._correct_positions()
+            # self._correct_positions()
 
             self._assign_groups()
             # draw config for debug
@@ -257,7 +262,7 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
             raise NotImplementedError('horizontal winding')
             # TODO: look at ordering, what constraints does a horizontal charge give?
         else:
-            self._correct_positions()
+            # self._correct_positions()
             self._assign_groups_only_neutrals()
             self.draw_bonds()
             plus_minus = self.cluster_positions[self.cluster_order[-2][0]][0] % 2
