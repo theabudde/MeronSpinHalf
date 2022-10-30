@@ -48,7 +48,7 @@ class MeronAlgorithmTwoFixedCharges(MeronAlgorithmOneFixedCharge):
         self.charged_cluster_order = self.charged_cluster_order[2:]
         self._calculate_charge_combinations()
 
-        n_flip_configs = 100000
+        n_flip_configs = 1
         histogram = np.zeros(2 ** self.n_clusters)
         for i in range(n_flip_configs):
             self.flip = np.zeros(self.n_clusters)
@@ -56,10 +56,11 @@ class MeronAlgorithmTwoFixedCharges(MeronAlgorithmOneFixedCharge):
             histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
 
         self._flip()
+        self.draw_bonds()
 
         plt.plot(histogram, ".")
         plt.ylim(bottom=0)
         plt.xlim(left=0)
         plt.grid()
-        plt.show()
+        # plt.show()
         pass

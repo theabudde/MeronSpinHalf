@@ -8,7 +8,6 @@ from itertools import product
 
 
 class MeronAlgorithm:
-
     @abstractmethod
     def __init__(self, n, t, w_a, w_b, w_c, beta, mc_steps):
         # constants
@@ -42,6 +41,7 @@ class MeronAlgorithm:
         self.cluster_combinations = np.array([])
         self.flip = []
         self.charge_combinations = np.array([])
+        self.gauge_field = np.zeros((self.n, self.t))
 
         # fermion lattice initialized to reference configuration
         self.fermion = np.full((self.n, self.t), False)
@@ -107,7 +107,6 @@ class MeronAlgorithm:
                                fill=color)
 
         for x, y in product(range(self.n), range(self.t)):
-            # TODO: don't use debug
             if self.bond[x, y] == 1:
                 draw.line([(x * scale, y * scale), ((x + 1) * scale, y * scale)], width=scale // 10, fill="green",
                           joint="curve")
@@ -120,10 +119,12 @@ class MeronAlgorithm:
                           fill="green", joint="curve")
             color = self._get_random_color(self.cluster_id[x, y])
             draw.ellipse((x * scale - 10, y * scale - 10, x * scale + 10, y * scale + 10), fill=color, outline='black')
-            if x % 2:
-                draw.text((x * scale - 4, y * scale - 4), "+", fill=(0, 0, 0))
-            else:
-                draw.text((x * scale - 4, y * scale - 4), "-", fill=(0, 0, 0))
+            if self.fermion[x, y]:
+                draw.text((x * scale - 4, y * scale - 4), "x", fill=(0, 0, 0))
+            # if x % 2:
+            #    draw.text((x * scale - 4, y * scale - 4), "+", fill=(0, 0, 0))
+            # else:
+            #    draw.text((x * scale - 4, y * scale - 4), "-", fill=(0, 0, 0))
 
         image.save("config.jpg")
 
@@ -141,17 +142,13 @@ class MeronAlgorithm:
         for y, x in product(range(self.t), range(self.n)):
             if not visited[x, y]:  # if you haven't seen the loop before
                 new_coordinates = (x, y)
-                previous_coordinates = (x, y)
-                self.cluster_positions[cluster_nr] = (x, y)
-                # Go around a cluster loop
-                loop_closed = False
-                while not loop_closed:
+                self.cluster_positions[cluster_nr] = new_coordinates
+                while True:
                     visited[new_coordinates] = True
                     self.cluster_id[new_coordinates] = cluster_nr  # give cluster its ID
-                    # update x and y to next position in cluster loop
-                    new_coordinates, loop_closed, direction, previous_coordinates = self._cluster_loop_step(
-                        new_coordinates, previous_coordinates, (x, y))
-
+                    new_coordinates = self._cluster_loop_step_new(new_coordinates)
+                    if new_coordinates == (x, y):
+                        break
                 # look where to find next cluster
                 cluster_nr += 1
         self.n_clusters = cluster_nr
@@ -165,6 +162,46 @@ class MeronAlgorithm:
         for cluster in range(self.n_clusters):
             self.cluster_order[cluster] = []
         self.flip = np.zeros(self.n_clusters)
+
+    # works only in reference configuration!
+    def _cluster_loop_step_new(self, current_position):
+        x = current_position[0]
+        y = current_position[1]
+
+        coord_bond_up_left = (x - 1) % self.n, (y - 1) % self.t
+        coord_bond_down_left = (x - 1) % self.n, y % self.t
+        coord_bond_down_right = x % self.n, y % self.t
+        coord_bond_up_right = x % self.n, (y - 1) % self.t
+
+        up = x, (y - 1) % self.t
+        right = (x + 1) % self.n, y
+        down = x, (y + 1) % self.t
+        left = (x - 1) % self.n, y
+
+        # if occupied
+        if current_position[0] % 2 == 0:
+            if current_position[1] % 2 == 0:
+                if self.bond[coord_bond_up_left] == 0:
+                    next_position = up
+                else:
+                    next_position = left
+            else:
+                if self.bond[coord_bond_up_right] == 0:
+                    next_position = up
+                else:
+                    next_position = right
+        else:
+            if current_position[1] % 2 == 0:
+                if self.bond[coord_bond_down_left] == 0:
+                    next_position = down
+                else:
+                    next_position = left
+            else:
+                if self.bond[coord_bond_down_right] == 0:
+                    next_position = down
+                else:
+                    next_position = right
+        return next_position
 
     def _cluster_loop_step(self, current_position, last_visited, start_of_loop):
         x = current_position[0]
@@ -239,28 +276,21 @@ class MeronAlgorithm:
         self.charge_combinations = np.zeros((self.n_clusters, 2))
 
     def _correct_positions(self):
-        # correct the charged one that is closest from the left to [0,0]
-        if len(self.charged_cluster_order) > 0:
-            # correct the top leftmost position of leftmost charged cluster
-            x = self.cluster_positions[self.charged_cluster_order[-1]][0]
-            while self.cluster_id[x, 0] != self.charged_cluster_order[0]:
-                x = (x + 1) % self.n
-            self.cluster_positions[self.charged_cluster_order[0]] = (x, 0)
         corrected = []
         for j in range(self.t):
-            if not (self.cluster_id[0, j] in corrected) and self.cluster_charge[self.cluster_id[0, j]] == 0:
+            if not self.cluster_id[0, j] in corrected:
                 position = (0, j)
-                previous_position = (0, j)
+                start_position = position
                 corrected.append(self.cluster_id[0, j])
-                closed_loop = False
-
-                while not closed_loop:
-                    position, closed_loop, direction, previous_position = self._cluster_loop_step(position,
-                                                                                                  previous_position,
-                                                                                                  (0, j))
-                    if direction == 3 and position[0] == (
+                while True:
+                    previous_position = position
+                    position = self._cluster_loop_step_new(position)
+                    going_left = (previous_position[0] == (position[0] + 1) % self.n)
+                    if going_left and position[0] == (
                             self.cluster_positions[self.cluster_id[position]][0] - 1) % self.n:
                         self.cluster_positions[self.cluster_id[position]] = position
+                    if position == start_position:
+                        break
 
     def _assign_groups(self):
         # recursive identification of nearest left charge or surrounding cluster for all neutral clusters
@@ -269,14 +299,11 @@ class MeronAlgorithm:
                                              self.charged_cluster_order[i])
 
     def _order_neighboring_clusters(self, start_cluster_id, left_group, right_group):
-        closed_loop = False
         start_position = self.cluster_positions[start_cluster_id]
         position = start_position
-        previous_position = start_position
+        while True:
+            position = self._cluster_loop_step_new(position)
 
-        while not closed_loop:
-            position, closed_loop, direction, previous_position = self._cluster_loop_step(position, previous_position,
-                                                                                          start_position)
             x = position[0]
             y = position[1]
             cluster_up = self.cluster_id[x, (y - 1) % self.t]
@@ -284,20 +311,16 @@ class MeronAlgorithm:
             cluster_down = self.cluster_id[x, (y + 1) % self.t]
             cluster_left = self.cluster_id[(x - 1) % self.n, y]
 
-            # check left (right) neighbors of cluster and mark them as being in the same (own_id) group
-            # and recursively check their neighbors too
-            if direction == 0:
-                self._mark_neighboring_clusters(cluster_left, left_group)
-                self._mark_neighboring_clusters(cluster_right, right_group)
-            elif direction == 1:
-                self._mark_neighboring_clusters(cluster_up, left_group)
-                self._mark_neighboring_clusters(cluster_down, right_group)
-            elif direction == 2:
-                self._mark_neighboring_clusters(cluster_right, left_group)
-                self._mark_neighboring_clusters(cluster_left, right_group)
-            elif direction == 3:
-                self._mark_neighboring_clusters(cluster_down, left_group)
-                self._mark_neighboring_clusters(cluster_up, right_group)
+            for neighbor in [cluster_up, cluster_right, cluster_down, cluster_left]:
+                if neighbor != start_cluster_id:
+                    if self.cluster_positions[neighbor][0] % 2 == self.cluster_positions[start_cluster_id][0] % 2:
+                        # is a left neighbor
+                        self._mark_neighboring_clusters(neighbor, left_group)
+                    else:
+                        # is a right neighbor
+                        self._mark_neighboring_clusters(neighbor, right_group)
+            if position == start_position:
+                break
 
     def _mark_neighboring_clusters(self, neighbor_id, neighbor_group):
         if self.cluster_charge[neighbor_id] == 0 and self.cluster_group[neighbor_id] == -1:
@@ -441,13 +464,44 @@ class MeronAlgorithm:
                 new_coordinates = start_position
                 previous_coordinates = start_position
                 loop_closed = False
+                # self.fermion[start_position] = not self.fermion[start_position]
                 while not loop_closed:
                     new_coordinates, loop_closed, direction, previous_coordinates = self._cluster_loop_step(
                         new_coordinates, previous_coordinates, start_position)
                     self.fermion[new_coordinates] = not self.fermion[new_coordinates]
 
-    def _calculate_partition_function(self, Z_before):
-        pass
+    def reweight_factor_vertical_bonds(self):
+        reweight_factor = 1
+        normalizing_factor = self.w_a
+        for x, y in product(range(self.n), range(self.t)):
+            if self.bond[x, y] == 0:
+                if self.fermion[x, y] == self.fermion[(x + 1) % self.n, y] \
+                        and self.fermion[x, (y + 1) % self.t] == self.fermion[(x + 1) % self.n, (y + 1) % self.t]:
+                    reweight_factor *= self.w_a / normalizing_factor
+                elif self.fermion[x, y] == self.fermion[x, (y + 1) % self.t]:
+                    if (self.fermion[x, y] and y % 2 == 0) or ((not self.fermion[x, y]) and y % 2 == 1):
+                        reweight_factor *= (self.w_a - 2 * self.w_c) / normalizing_factor
+                    else:
+                        reweight_factor *= (self.w_a + 2 * self.w_c) / normalizing_factor
+                else:
+                    raise ("fermion got flipped wrong")
+        return reweight_factor
+
+    def _calculate_gauge_field(self):
+        for x in range(self.n - 1):
+            for y in range(1, self.t):
+                if (y + 1) % 2 != x % 2 or self.fermion[x, y] == self.fermion[x, y - 1]:
+                    self.gauge_field[x, y] = self.gauge_field[x, y - 1]
+                elif not self.fermion[x, y]:
+                    self.gauge_field[x, y] = self.gauge_field[x, y - 1] - 1
+                else:
+                    self.gauge_field[x, y] = self.gauge_field[x, y - 1] + 1
+            if self.fermion[x + 1, 0] == x % 2:
+                self.gauge_field[x + 1, 0] = self.gauge_field[x, 0]
+            elif x % 2:
+                self.gauge_field[x + 1, 0] = self.gauge_field[x, 0] - 1
+            else:
+                self.gauge_field[x + 1, 0] = self.gauge_field[x, 0] + 1
 
     def mc_step(self):
         self._assign_bonds()

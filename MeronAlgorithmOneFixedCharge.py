@@ -14,7 +14,7 @@ class MeronAlgorithmOneFixedCharge(MeronAlgorithm):
         for x, y in product(range(self.n), range(self.t)):
             if y % 2 != x % 2:
                 self.bond[x, y] = - 1
-            elif x == self.n - 1 or x == 0:
+            elif x == self.n - 1 or x == 0 or x == 1:
                 self.bond[x, y] = 0
             # all occupied or all unoccupied
             elif self.fermion[x, y] == self.fermion[(x + 1) % self.n, y] \
@@ -190,9 +190,10 @@ class MeronAlgorithmOneFixedCharge(MeronAlgorithm):
             row, weight = self._charge_automaton(row, charge_idx, case_character)
 
     def _generate_flips(self):
-        row = 0
-        self._generate_neutral_flips(0, -1, True)
+        row = 1
+        self._generate_neutral_flips(1, -1, False)
         self.flip[0] = 1
+        self.flip[1] = 0
         for charge_idx in range(len(self.charged_cluster_order)):
             charge = self.charged_cluster_order[charge_idx]
             case_character = random.choices(range(2), weights=self.charge_combinations[row, charge_idx])[0]
@@ -226,7 +227,7 @@ class MeronAlgorithmOneFixedCharge(MeronAlgorithm):
         for charge in self.charged_cluster_order:
             self.cluster_combinations[charge] = self._calculate_neutral_combinations(charge,
                                                                                      self.cluster_charge[charge] > 0)
-        self.charged_cluster_order = self.charged_cluster_order[1:]
+        self.charged_cluster_order = self.charged_cluster_order[2:]
         self._calculate_charge_combinations()
 
         n_flip_configs = 100000
@@ -237,6 +238,7 @@ class MeronAlgorithmOneFixedCharge(MeronAlgorithm):
             histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
 
         self._flip()
+        self.draw_bonds()
 
         plt.plot(histogram, ".")
         plt.ylim(bottom=0)
