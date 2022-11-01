@@ -3,13 +3,14 @@ import numpy as np
 from MeronAlgorithmOneFixedCharge import MeronAlgorithmOneFixedCharge
 from MeronAlgorithmTwoFixedCharges import MeronAlgorithmTwoFixedCharges
 from MeronAlgorithmNoCondition import MeronAlgorithmNoCondition
+import time
 
 
 def main():
     n = 10  # number of lattice points
     N = 10  # number of half time steps (#even + #odd)
     beta = 0.1  # beta
-    mc_steps = 10000  # number of mc steps
+    mc_steps = 100000  # number of mc steps
 
     epsilon = beta / N
     t = 70
@@ -25,9 +26,12 @@ def main():
     w_b = 0.5
 
     algorithm = MeronAlgorithmNoCondition(n, N, w_a, w_b, w_c, beta, mc_steps)
-
+    t0 = time.time()
     for mc in range(mc_steps):
         algorithm.mc_step()
+    t1 = time.time()
+
+    print('Code took:', t1 - t0)
 
 
 if __name__ == "__main__":

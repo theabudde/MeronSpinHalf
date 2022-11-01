@@ -21,6 +21,8 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
                 self.fermion[2 * i, j] = True
 
     def _identify_horizontal_winding(self):
+        self.horizontal_winding_order = []
+        self.horizontally_winding_clusters_exist = False
         # determine cluster's winding
         self.horizontal_winding = np.zeros(self.n_clusters)
         for i in range(self.t):
@@ -32,7 +34,7 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
         # determine order of winding clusters
         for i in range(self.t):
             if self.horizontal_winding[self.cluster_id[0, i]] != 0 and not self.cluster_id[
-                                                                               0, i] in self.charged_cluster_order:
+                                                                               0, i] in self.horizontal_winding_order:
                 self.horizontal_winding_order.append(self.cluster_id[0, i])
                 self.cluster_positions[self.cluster_id[0, i]] = (0, i)
                 self.horizontally_winding_clusters_exist = True
@@ -43,62 +45,6 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
         while self.cluster_id[0, y] != self.charged_cluster_order[0]:
             y = (y + 1) % self.t
         self.cluster_positions[self.charged_cluster_order[1]] = (0, y)
-
-    def _assign_groups_only_neutrals(self):
-        self.cluster_order[-2] = []
-        start_cluster = 0
-        while True:
-            outer_cluster = -2
-            same_cluster_level = []
-            neighbors = self._find_left_neighbors(start_cluster)
-            for neighbor in neighbors:
-                if self._has_as_right_neighbor(neighbor, start_cluster):
-                    outer_cluster = neighbor
-                else:
-                    same_cluster_level.append(neighbor)
-            for neighbor in same_cluster_level:
-                if not neighbor == outer_cluster:
-                    if self.cluster_group[neighbor] == - 1:
-                        self.cluster_group[neighbor] = outer_cluster
-                        self.cluster_order[outer_cluster].append(neighbor)
-                        self._order_neighboring_clusters(neighbor, outer_cluster, neighbor)
-            if outer_cluster == - 2:
-                break
-            start_cluster = outer_cluster
-
-    def _find_left_neighbors(self, start_cluster_id):
-        left_neighbors = []
-
-        closed_loop = False
-        start_position = self.cluster_positions[start_cluster_id]
-        position = start_position
-        previous_position = start_position
-
-        while not closed_loop:
-            position, closed_loop, direction, previous_position = self._cluster_loop_step(position, previous_position,
-                                                                                          start_position)
-            x = position[0]
-            y = position[1]
-            cluster_up = self.cluster_id[x, (y - 1) % self.t]
-            cluster_right = self.cluster_id[(x + 1) % self.n, y]
-            cluster_down = self.cluster_id[x, (y + 1) % self.t]
-            cluster_left = self.cluster_id[(x - 1) % self.n, y]
-
-            # check left (right) neighbors of cluster and mark them as being in the same (own_id) group
-            # and recursively check their neighbors too
-            if direction == 0:
-                if cluster_left not in left_neighbors and cluster_left != start_cluster_id:
-                    left_neighbors.append(cluster_left)
-            elif direction == 1:
-                if cluster_up not in left_neighbors and cluster_up != start_cluster_id:
-                    left_neighbors.append(cluster_up)
-            elif direction == 2:
-                if cluster_right not in left_neighbors and cluster_right != start_cluster_id:
-                    left_neighbors.append(cluster_right)
-            elif direction == 3:
-                if cluster_down not in left_neighbors and cluster_down != start_cluster_id:
-                    left_neighbors.append(cluster_down)
-        return left_neighbors
 
     def _charge_automaton(self, row, charge_index, case_character):
         next_row = -1
@@ -210,7 +156,7 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
 
     def mc_step(self):
         n_flip_configs = 1
-        seed = 1
+        # seed = 1
         # for seed in range(0, 10000):
         # random.seed(seed)
 
@@ -220,27 +166,18 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
         # place new bonds
         self._assign_bonds()
 
-        self.draw_bonds()
-
         # find clusters
         self._find_clusters()
-
-        self.draw_bonds()
 
         self._identify_charged_clusters()
         self._identify_horizontal_winding()
 
-        # optional: run tests to verify hypothesis of cluster structure (very slow)
-        # self.tests(seed)
+        if self.charged_clusters_exist or self.horizontally_winding_clusters_exist:
+            if self.horizontally_winding_clusters_exist and not self.charged_clusters_exist:
+                self.charged_cluster_order = self.horizontal_winding_order
+                self.cluster_charge = self.horizontal_winding
+            self._assign_groups_with_charges()
 
-        histogram = np.zeros(2 ** self.n_clusters)
-
-        if self.charged_clusters_exist:
-            # self._correct_positions()
-
-            self._assign_groups()
-            # draw config for debug
-            self.draw_bonds()
             # calculate the cluster combinations
             for charge in self.charged_cluster_order:
                 if self.cluster_charge[charge] > 0:
@@ -248,31 +185,21 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
                 else:
                     self._calculate_neutral_combinations(charge, False)
             self._calculate_charge_combinations()
-            for i in range(n_flip_configs):
-                self.flip = np.zeros(self.n_clusters)
-                self._generate_flips()
-                self._flip()
-                self.draw_bonds()
-                self._calculate_gauge_field()
-                histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
+            self.flip = np.zeros(self.n_clusters)
+            self._generate_flips()
+            self._flip()
+            self._calculate_gauge_field()
 
-        elif self.horizontally_winding_clusters_exist:
-            self.draw_bonds()
-            pass
-            raise NotImplementedError('horizontal winding')
-            # TODO: look at ordering, what constraints does a horizontal charge give?
-        else:
-            # self._correct_positions()
-            self._assign_groups_only_neutrals()
-            self.draw_bonds()
-            plus_minus = self.cluster_positions[self.cluster_order[-2][0]][0] % 2
-            total_combinations = self._calculate_neutral_combinations(-2, not plus_minus)
-            if plus_minus:
-                total_combinations[1] -= total_combinations[0] + 1
-            else:
-                total_combinations[0] -= total_combinations[1] + 1
-            p_plus_minus = (total_combinations[0] + 1) / (total_combinations[0] + total_combinations[1] + 2)
-            for i in range(n_flip_configs):
+        elif not self.horizontally_winding_clusters_exist and not self.charged_clusters_exist:
+            self._assign_groups_only_neutrals(0)
+            if self.n_clusters > 1:
+                plus_minus = self.cluster_positions[self.cluster_order[-2][0]][0] % 2
+                total_combinations = self._calculate_neutral_combinations(-2, not plus_minus)
+                if plus_minus:
+                    total_combinations[1] -= total_combinations[0] + 1
+                else:
+                    total_combinations[0] -= total_combinations[1] + 1
+                p_plus_minus = (total_combinations[0] + 1) / (total_combinations[0] + total_combinations[1] + 2)
                 while True:
                     self.flip = np.zeros(self.n_clusters)
                     if random.random() < p_plus_minus:
@@ -283,14 +210,20 @@ class MeronAlgorithmNoCondition(MeronAlgorithm):
                         self._generate_neutral_flips(-2, charge, plus_minus)
                     if not int("".join(str(int(k)) for k in self.flip)) == 0 or random.random() < 0.5:
                         break
-                histogram[int("".join(str(int(k)) for k in self.flip), 2)] += 1
-        plt.plot(histogram, ".")
-        plt.ylim(bottom=0)
-        plt.xlim(left=0)
-        plt.grid()
+            else:
+                if random.random() < 0.5:
+                    self.flip[0] = 1
+                else:
+                    self.flip[0] = 0
+
+        # plt.plot(histogram, ".")
+        # plt.ylim(bottom=0)
+        # plt.xlim(left=0)
+        # plt.grid()
         # plt.show()
 
-        # draw config for debug
-        self.draw_bonds()
+        self._flip()
+        self._calculate_gauge_field()
+        self._test_gauss_law()
 
         pass

@@ -222,7 +222,7 @@ class MeronAlgorithmOneFixedCharge(MeronAlgorithm):
         self._find_clusters()
         self._identify_charged_clusters()
         self._correct_positions()
-        self._assign_groups()
+        self._assign_groups_with_charges()
         self.draw_bonds()
         for charge in self.charged_cluster_order:
             self.cluster_combinations[charge] = self._calculate_neutral_combinations(charge,
