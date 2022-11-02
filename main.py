@@ -1,8 +1,5 @@
 import numpy as np
-
-from MeronAlgorithmOneFixedCharge import MeronAlgorithmOneFixedCharge
-from MeronAlgorithmTwoFixedCharges import MeronAlgorithmTwoFixedCharges
-from MeronAlgorithmNoCondition import MeronAlgorithmNoCondition
+from MeronAlgorithmSpinHalfMassless import MeronAlgorithmSpinHalfMassless
 import time
 
 
@@ -25,7 +22,7 @@ def main():
     w_a = 0.5
     w_b = 0.5
 
-    algorithm = MeronAlgorithmNoCondition(n, N, w_a, w_b, w_c, beta, mc_steps)
+    algorithm = MeronAlgorithmSpinHalfMassless(n, N, w_a, w_b, w_c, beta, mc_steps)
     t0 = time.time()
     for mc in range(mc_steps):
         algorithm.mc_step()

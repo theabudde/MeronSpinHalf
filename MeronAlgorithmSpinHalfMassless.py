@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import random
 
 
-class MeronAlgorithmNoCondition(MeronAlgorithm):
+class MeronAlgorithmSpinHalfMassless(MeronAlgorithm):
 
     def __init__(self, n, t, w_a, w_b, w_c, beta, mc_steps):
         MeronAlgorithm.__init__(self, n, t, w_a, w_b, w_c, beta, mc_steps)
