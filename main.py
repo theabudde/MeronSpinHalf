@@ -1,5 +1,6 @@
 import numpy as np
 from MeronAlgorithmSpinHalfMassless import MeronAlgorithmSpinHalfMassless
+from MeronAlgorithm import MeronAlgorithm
 import time
 
 
@@ -22,7 +23,7 @@ def main():
     w_a = 0.5
     w_b = 0.5
 
-    algorithm = MeronAlgorithmSpinHalfMassless(n, N, w_a, w_b, w_c, beta, mc_steps)
+    algorithm = MeronAlgorithm(n, N, w_a, w_b, beta, mc_steps)
     t0 = time.time()
     for mc in range(mc_steps):
         algorithm.mc_step()

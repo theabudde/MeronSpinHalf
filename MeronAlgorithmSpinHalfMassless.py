@@ -1,14 +1,13 @@
-from MeronAlgorithm import MeronAlgorithm
+from MeronAlgorithmWithAGaussLaw import MeronAlgorithmWithAGaussLaw
 import numpy as np
 from itertools import product
 import matplotlib.pyplot as plt
 import random
 
 
-class MeronAlgorithmSpinHalfMassless(MeronAlgorithm):
-
-    def __init__(self, n, t, w_a, w_b, w_c, beta, mc_steps):
-        MeronAlgorithm.__init__(self, n, t, w_a, w_b, w_c, beta, mc_steps)
+class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
+    def __init__(self, n, t, w_a, w_b, beta, mc_steps):
+        MeronAlgorithmWithAGaussLaw.__init__(self, n, t, w_a, w_b, beta, mc_steps)
         # number of times a neutral cluster wraps horizontally
         self.horizontal_winding = np.array([0])
         self.horizontal_winding_order = []
@@ -19,32 +18,6 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithm):
         for i in range(self.n // 2):
             for j in range(self.t):
                 self.fermion[2 * i, j] = True
-
-    def _identify_horizontal_winding(self):
-        self.horizontal_winding_order = []
-        self.horizontally_winding_clusters_exist = False
-        # determine cluster's winding
-        self.horizontal_winding = np.zeros(self.n_clusters)
-        for i in range(self.t):
-            if i % 2:
-                self.horizontal_winding[self.cluster_id[0, i]] += 1
-            else:
-                self.horizontal_winding[self.cluster_id[0, i]] -= 1
-
-        # determine order of winding clusters
-        for i in range(self.t):
-            if self.horizontal_winding[self.cluster_id[0, i]] != 0 and not self.cluster_id[
-                                                                               0, i] in self.horizontal_winding_order:
-                self.horizontal_winding_order.append(self.cluster_id[0, i])
-                self.cluster_positions[self.cluster_id[0, i]] = (0, i)
-                self.horizontally_winding_clusters_exist = True
-
-    def correct_top_position_of_horizontally_winding_clusters(self):
-        # correct the topmost position of topmost horizontally winding cluster
-        y = self.cluster_positions[self.charged_cluster_order[-1]][1]
-        while self.cluster_id[0, y] != self.charged_cluster_order[0]:
-            y = (y + 1) % self.t
-        self.cluster_positions[self.charged_cluster_order[1]] = (0, y)
 
     def _charge_automaton(self, row, charge_index, case_character):
         next_row = -1
@@ -154,12 +127,169 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithm):
                     next_row = -1
         return next_row, arrow_weight
 
-    def mc_step(self):
-        n_flip_configs = 1
-        # seed = 1
-        # for seed in range(0, 10000):
-        # random.seed(seed)
+    def _calculate_neutral_combinations(self, start_cluster, plus_minus):
+        result = np.array([0, 0])
+        # multiply out product for clusters in the same level
+        for i in range(len(self.cluster_order[start_cluster])):
+            result = (result + 1) * (
+                    self._calculate_neutral_combinations(self.cluster_order[start_cluster][i], not plus_minus) + 1) - 1
+        # calculate the effect of the loop
+        if self.cluster_charge[start_cluster] == 0:
+            if plus_minus:
+                result = np.array([result[0] + result[1] + 1, result[1]])
+            else:
+                result = np.array([result[0], result[0] + result[1] + 1])
+        # save result
+        if start_cluster >= 0:
+            self.cluster_combinations[start_cluster] = result
+        return result
 
+    def _generate_neutral_flips(self, charged_cluster, boundary_charge, plus_minus):
+        for cluster in self.cluster_order[charged_cluster]:
+            if np.array_equal(self.cluster_combinations[cluster], np.array([1, 0])):
+                if boundary_charge < 0:
+                    self.flip[cluster] = random.random() < 0.5
+            elif np.array_equal(self.cluster_combinations[cluster], np.array([0, 1])):
+                if boundary_charge > 0:
+                    self.flip[cluster] = random.random() < 0.5
+            elif boundary_charge < 0:
+                if random.random() < (self.cluster_combinations[cluster][1] + 1) / (
+                        self.cluster_combinations[cluster][0] + 1) and plus_minus:
+                    self.flip[cluster] = 1
+                    self._generate_neutral_flips(cluster, - boundary_charge, not plus_minus)
+                else:
+                    self._generate_neutral_flips(cluster, boundary_charge, not plus_minus)
+            else:
+                if random.random() < (self.cluster_combinations[cluster][0] + 1) / (
+                        self.cluster_combinations[cluster][1] + 1) and not plus_minus:
+                    self.flip[cluster] = 1
+                    self._generate_neutral_flips(cluster, - boundary_charge, not plus_minus)
+                else:
+                    self._generate_neutral_flips(cluster, boundary_charge, not plus_minus)
+
+    def _flips_are_zero(self, charged_cluster):
+        result = 0
+        for cluster in self.cluster_order[charged_cluster]:
+            if self.flip[cluster] == 1:
+                return 1
+            result += self._flips_are_zero(cluster)
+        return result > 0
+
+    def _generate_neutral_flips_no_zero(self, charged_cluster, boundary_charge, plus_minus):
+        self._generate_neutral_flips(charged_cluster, boundary_charge, plus_minus)
+        if not self._flips_are_zero(charged_cluster) and not np.any(self.flip[self.cluster_order[charged_cluster]]):
+            self._generate_neutral_flips_no_zero(charged_cluster, boundary_charge, plus_minus)
+
+    def _calculate_charge_combinations(self):
+        self.charge_combinations = np.full((5, len(self.charged_cluster_order) + 1, 4), 0)
+
+        # define legal final states
+        self.charge_combinations[0, -1, 0] = 1
+        self.charge_combinations[2, -1, 0] = 1
+        self.charge_combinations[3, -1, 0] = 1
+
+        for charge_index in range(len(self.charged_cluster_order) - 1, -1, -1):
+            for row in range(5):
+                if row == 2:
+                    for case_character in range(4):
+                        next_row, weight = self._charge_automaton(row, charge_index, case_character)
+                        if not next_row == -1:
+                            self.charge_combinations[row, charge_index, case_character] += weight * np.sum(
+                                self.charge_combinations[next_row, charge_index + 1])
+                else:
+                    for case_character in range(2):
+                        next_row, weight = self._charge_automaton(row, charge_index, case_character)
+                        if not next_row == -1:
+                            self.charge_combinations[row, charge_index, case_character] += weight * np.sum(
+                                self.charge_combinations[next_row, charge_index + 1])
+
+    def _generate_flips(self):
+        row = 2
+        for charge_idx in range(len(self.charged_cluster_order)):
+            charge = self.charged_cluster_order[charge_idx]
+            case_character = random.choices(range(4), weights=self.charge_combinations[row, charge_idx])[0]
+            if row == 2:
+                match case_character:
+                    case 0:
+                        self.flip[charge] = 0  # dont flip charge
+                    case 1:
+                        self.flip[charge] = 0
+                        if self.cluster_combinations[charge][0] > 0:
+                            self._generate_neutral_flips_no_zero(charge, -1, self.cluster_charge[charge] < 0)
+                        else:
+                            raise NotImplementedError
+                    case 2:
+                        self.flip[charge] = 0
+                        if self.cluster_combinations[charge][1] > 0:
+                            self._generate_neutral_flips_no_zero(charge, 1, self.cluster_charge[charge] < 0)
+                        else:
+                            raise NotImplementedError
+                    case 3:
+                        self.flip[charge] = 1
+                        self._generate_neutral_flips(charge, self.cluster_charge[charge],
+                                                     self.cluster_charge[charge] < 0)
+            elif row == 0 or row == 3:
+                match case_character:
+                    case 0:
+                        self.flip[charge] = 0
+                        self._generate_neutral_flips(charge, - self.cluster_charge[charge],
+                                                     self.cluster_charge[charge] < 0)
+                    case 1:
+                        self.flip[charge] = 1
+                        self._generate_neutral_flips(charge, self.cluster_charge[charge],
+                                                     self.cluster_charge[charge] < 0)
+            else:
+                match case_character:
+                    case 0:
+                        self.flip[charge] = 0
+                        self._generate_neutral_flips(charge, self.cluster_charge[charge],
+                                                     self.cluster_charge[charge] < 0)
+                    case 1:
+                        self.flip[charge] = 1
+                        self._generate_neutral_flips(charge, - self.cluster_charge[charge],
+                                                     self.cluster_charge[charge] < 0)
+
+            row, weight = self._charge_automaton(row, charge_idx, case_character)
+
+    def _calculate_gauge_field(self):
+        for x in range(self.n - 1):
+            for y in range(1, self.t):
+                if (y + 1) % 2 != x % 2 or self.fermion[x, y] == self.fermion[x, y - 1]:
+                    self.gauge_field[x, y] = self.gauge_field[x, y - 1]
+                elif not self.fermion[x, y]:
+                    self.gauge_field[x, y] = self.gauge_field[x, y - 1] - 1
+                else:
+                    self.gauge_field[x, y] = self.gauge_field[x, y - 1] + 1
+            if self.fermion[x + 1, 0] == x % 2:
+                self.gauge_field[x + 1, 0] = self.gauge_field[x, 0]
+            elif x % 2:
+                self.gauge_field[x + 1, 0] = self.gauge_field[x, 0] - 1
+            else:
+                self.gauge_field[x + 1, 0] = self.gauge_field[x, 0] + 1
+
+    def _test_gauss_law(self):
+        if np.amax(self.gauge_field) - np.amin(self.gauge_field) > 1:
+            self.draw_bonds()
+            raise 'gauss law broken'
+
+    def reweight_factor_vertical_bonds(self):
+        reweight_factor = 1
+        normalizing_factor = self.w_a
+        for x, y in product(range(self.n), range(self.t)):
+            if self.bond[x, y] == 0:
+                if self.fermion[x, y] == self.fermion[(x + 1) % self.n, y] \
+                        and self.fermion[x, (y + 1) % self.t] == self.fermion[(x + 1) % self.n, (y + 1) % self.t]:
+                    reweight_factor *= self.w_a / normalizing_factor
+                elif self.fermion[x, y] == self.fermion[x, (y + 1) % self.t]:
+                    if (self.fermion[x, y] and y % 2 == 0) or ((not self.fermion[x, y]) and y % 2 == 1):
+                        reweight_factor *= (self.w_a - 2 * self.w_c) / normalizing_factor
+                    else:
+                        reweight_factor *= (self.w_a + 2 * self.w_c) / normalizing_factor
+                else:
+                    raise ("fermion got flipped wrong")
+        return reweight_factor
+
+    def mc_step(self):
         # reset to reference config
         self._reset()
 
@@ -168,6 +298,7 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithm):
 
         # find clusters
         self._find_clusters()
+        self._set_sizes_of_arrays()
 
         self._identify_charged_clusters()
         self._identify_horizontal_winding()
@@ -215,12 +346,6 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithm):
                     self.flip[0] = 1
                 else:
                     self.flip[0] = 0
-
-        # plt.plot(histogram, ".")
-        # plt.ylim(bottom=0)
-        # plt.xlim(left=0)
-        # plt.grid()
-        # plt.show()
 
         self._flip()
         self._calculate_gauge_field()
