@@ -5,8 +5,8 @@ import random
 
 
 class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
-    def __init__(self, n, t, w_a, w_b, beta, mc_steps):
-        MeronAlgorithmWithAGaussLaw.__init__(self, n, t, w_a, w_b, beta, mc_steps)
+    def __init__(self, n, t, w_a, w_b, mc_steps):
+        MeronAlgorithmWithAGaussLaw.__init__(self, n, t, w_a, w_b, mc_steps)
 
     def _reset(self):
         MeronAlgorithmWithAGaussLaw._reset(self)
@@ -16,7 +16,7 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
 
     def _charge_automaton(self, row, charge_index, case_character):
         next_row = -1
-        arrow_weight = 0
+        arrow_weight = 0.0
         charge = self.cluster_charge[self.charged_cluster_order[charge_index]]
         pm_combinations = self.cluster_combinations[self.charged_cluster_order[charge_index]][0]
         mp_combinations = self.cluster_combinations[self.charged_cluster_order[charge_index]][1]
@@ -28,34 +28,34 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                     else:
                         next_row = 1
                     if charge > 0:
-                        arrow_weight = pm_combinations + 1
+                        arrow_weight = pm_combinations + 1.0
                     else:
-                        arrow_weight = mp_combinations + 1
+                        arrow_weight = mp_combinations + 1.0
                 elif case_character == 1:
                     if charge_index == 0:
                         next_row = -1
                     elif charge > 0:
                         next_row = 0
-                        arrow_weight = mp_combinations + 1
+                        arrow_weight = mp_combinations + 1.0
                     else:
                         next_row = 0
-                        arrow_weight = pm_combinations + 1
+                        arrow_weight = pm_combinations + 1.0
             case 1:
                 if charge_index == 0:
                     next_row = -1
                 elif case_character == 0:
                     next_row = 0
                     if charge > 0:
-                        arrow_weight = mp_combinations + 1
+                        arrow_weight = mp_combinations + 1.0
                     else:
-                        arrow_weight = pm_combinations + 1
+                        arrow_weight = pm_combinations + 1.0
                 else:
                     next_row = -1
             case 2:
                 match case_character:
                     case 0:
                         next_row = 2
-                        arrow_weight = 1
+                        arrow_weight = 1.0
                     case 1:
                         if charge_index == len(self.charged_cluster_order) - 1:
                             next_row = 2
@@ -81,10 +81,10 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                             next_row = -1
                         elif charge > 0:
                             next_row = 0
-                            arrow_weight = mp_combinations + 1
+                            arrow_weight = mp_combinations + 1.0
                         else:
                             next_row = 3
-                            arrow_weight = pm_combinations + 1
+                            arrow_weight = pm_combinations + 1.0
             case 3:
                 if charge_index == 0:
                     next_row = -1
@@ -93,47 +93,48 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                         next_row = -1
                     elif charge_index == len(self.charged_cluster_order) - 1:
                         next_row = 3
-                        arrow_weight = mp_combinations + 1
+                        arrow_weight = mp_combinations + 1.0
                     elif charge > 0:
                         next_row = 4
-                        arrow_weight = pm_combinations + 1
+                        arrow_weight = pm_combinations + 1.0
                     else:
                         next_row = 4
-                        arrow_weight = mp_combinations + 1
+                        arrow_weight = mp_combinations + 1.0
                 else:
                     if charge_index == len(self.charged_cluster_order) - 1:
                         next_row = -1
                     elif charge > 0:
                         next_row = 3
-                        arrow_weight = mp_combinations + 1
+                        arrow_weight = mp_combinations + 1.0
                     else:
                         next_row = 3
-                        arrow_weight = pm_combinations + 1
+                        arrow_weight = pm_combinations + 1.0
             case 4:
                 if charge_index == 0 or charge_index == 0 or charge_index == len(self.charged_cluster_order) - 1:
                     next_row = -1
                 elif case_character == 0:
                     next_row = 3
                     if charge > 0:
-                        arrow_weight = mp_combinations + 1
+                        arrow_weight = mp_combinations + 1.0
                     else:
-                        arrow_weight = pm_combinations + 1
+                        arrow_weight = pm_combinations + 1.0
                 else:
                     next_row = -1
         return next_row, arrow_weight
 
     def _calculate_neutral_combinations(self, start_cluster, plus_minus):
-        result = np.array([0, 0])
+        result = np.array([0.0, 0.0])
         # multiply out product for clusters in the same level
         for i in range(len(self.cluster_order[start_cluster])):
-            result = (result + 1) * (
-                    self._calculate_neutral_combinations(self.cluster_order[start_cluster][i], not plus_minus) + 1) - 1
+            result = (result + 1.0) * (
+                    self._calculate_neutral_combinations(self.cluster_order[start_cluster][i],
+                                                         not plus_minus) + 1.0) - 1.0
         # calculate the effect of the loop
         if self.cluster_charge[start_cluster] == 0:
             if plus_minus:
-                result = np.array([result[0] + result[1] + 1, result[1]])
+                result = np.array([result[0] + result[1] + 1.0, result[1]])
             else:
-                result = np.array([result[0], result[0] + result[1] + 1])
+                result = np.array([result[0], result[0] + result[1] + 1.0])
         # save result
         if start_cluster >= 0:
             self.cluster_combinations[start_cluster] = result
@@ -141,10 +142,10 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
 
     def _generate_neutral_flips(self, charged_cluster, boundary_charge, plus_minus):
         for cluster in self.cluster_order[charged_cluster]:
-            if np.array_equal(self.cluster_combinations[cluster], np.array([1, 0])):
+            if np.array_equal(self.cluster_combinations[cluster], np.array([1.0, 0.0])):
                 if boundary_charge < 0:
                     self.flip[cluster] = random.random() < 0.5
-            elif np.array_equal(self.cluster_combinations[cluster], np.array([0, 1])):
+            elif np.array_equal(self.cluster_combinations[cluster], np.array([0.0, 1.0])):
                 if boundary_charge > 0:
                     self.flip[cluster] = random.random() < 0.5
             elif boundary_charge < 0:
@@ -176,12 +177,12 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
             self._generate_neutral_flips_no_zero(charged_cluster, boundary_charge, plus_minus)
 
     def _calculate_charge_combinations(self):
-        self.charge_combinations = np.full((5, len(self.charged_cluster_order) + 1, 4), 0)
+        self.charge_combinations = np.full((5, len(self.charged_cluster_order) + 1, 4), 0.0, dtype=np.float64)
 
         # define legal final states
-        self.charge_combinations[0, -1, 0] = 1
-        self.charge_combinations[2, -1, 0] = 1
-        self.charge_combinations[3, -1, 0] = 1
+        self.charge_combinations[0, -1, 0] = 1.0
+        self.charge_combinations[2, -1, 0] = 1.0
+        self.charge_combinations[3, -1, 0] = 1.0
 
         for charge_index in range(len(self.charged_cluster_order) - 1, -1, -1):
             for row in range(5):
@@ -189,14 +190,14 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                     for case_character in range(4):
                         next_row, weight = self._charge_automaton(row, charge_index, case_character)
                         if not next_row == -1:
-                            self.charge_combinations[row, charge_index, case_character] += weight * np.sum(
-                                self.charge_combinations[next_row, charge_index + 1])
+                            self.charge_combinations[row, charge_index, case_character] += float(weight) * float(np.sum(
+                                self.charge_combinations[next_row, charge_index + 1]))
                 else:
                     for case_character in range(2):
                         next_row, weight = self._charge_automaton(row, charge_index, case_character)
                         if not next_row == -1:
                             self.charge_combinations[row, charge_index, case_character] += weight * np.sum(
-                                self.charge_combinations[next_row, charge_index + 1])
+                                self.charge_combinations[next_row, charge_index + 1], dtype=float)
 
     def _generate_flips(self):
         row = 2

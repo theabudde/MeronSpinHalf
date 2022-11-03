@@ -5,13 +5,12 @@ from itertools import product
 
 
 class MeronAlgorithm:
-    def __init__(self, n, t, w_a, w_b, beta, mc_steps):
+    def __init__(self, n, t, w_a, w_b, mc_steps):
         # constants
         self.n = n
         self.t = t
         self.w_a = w_a
         self.w_b = w_b
-        self.beta = beta
         self.mc_steps = mc_steps
 
         # positions of fermions

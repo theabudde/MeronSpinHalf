@@ -7,8 +7,8 @@ from PIL import Image, ImageDraw
 
 class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
     @abstractmethod
-    def __init__(self, n, t, w_a, w_b, beta, mc_steps):
-        MeronAlgorithm.__init__(self, n, t, w_a, w_b, beta, mc_steps)
+    def __init__(self, n, t, w_a, w_b, mc_steps):
+        MeronAlgorithm.__init__(self, n, t, w_a, w_b, mc_steps)
         # charge of each cluster in order cluster_id
         self.cluster_charge = np.array([0])
         # order of charged clusters only or if only neutrals exist, the horizontally winding clusters
@@ -132,7 +132,7 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
         neighbor_y = neighbor_position_where_they_are_direct_neighors[1]
         direction_headed_0 = (
             (own_x - previous_position_traversed[0]) % self.n, (own_y - previous_position_traversed[1]) % self.t)
-        direction_neighbor = ((neighbor_x - own_x) % self.n, (neighbor_y - own_y) % self.n)
+        direction_neighbor = ((neighbor_x - own_x) % self.n, (neighbor_y - own_y) % self.t)
         next_own_pos = self._cluster_loop_step(own_position_where_they_are_direct_neighbors)
         direction_headed_1 = ((next_own_pos[0] - own_x) % self.n, (next_own_pos[1] - own_y) % self.t)
 
