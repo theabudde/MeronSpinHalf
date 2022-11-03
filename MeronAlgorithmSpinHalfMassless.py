@@ -265,6 +265,7 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
     def _test_gauss_law(self):
         if np.amax(self.gauge_field) - np.amin(self.gauge_field) > 1:
             self.draw_bonds()
+            pass
             raise 'gauss law broken'
 
     def reweight_factor_vertical_bonds(self):

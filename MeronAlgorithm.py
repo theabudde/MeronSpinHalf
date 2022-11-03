@@ -96,19 +96,27 @@ class MeronAlgorithm:
         for y, x in product(range(self.t), range(self.n)):
             if not visited[x, y]:  # if you haven't seen the loop before
                 new_coordinates = (x, y)
+                start_coordinates = new_coordinates
                 self.cluster_positions[cluster_nr] = new_coordinates
+                leftness = 0
+                max_leftness = 0
                 while True:
                     visited[new_coordinates] = True
                     self.cluster_id[new_coordinates] = cluster_nr  # give cluster its ID
                     previous_coordinates = new_coordinates
                     new_coordinates = self._cluster_loop_step(new_coordinates)
-                    # correct position to be leftmost and at the top of a leftmost edge of the cluster
-                    if (new_coordinates[0] == (self.cluster_positions[cluster_nr][0] - 1) % self.n
-                        and new_coordinates[0] == (previous_coordinates[0] - 1) % self.n) \
-                            or (new_coordinates[1] == (previous_coordinates[1] - 1) % self.t
-                                and new_coordinates[0] == self.cluster_positions[cluster_nr][0]
-                                and new_coordinates[1] == (self.cluster_positions[cluster_nr][1] - 1) % self.t):
+
+                    if (previous_coordinates[0] - 1) % self.n == new_coordinates[0]:
+                        leftness += 1
+                        if leftness > max_leftness:
+                            max_leftness = leftness
+                            self.cluster_positions[cluster_nr] = new_coordinates
+                    elif (previous_coordinates[0] + 1) % self.n == new_coordinates[0]:
+                        leftness -= 1
+                    elif (previous_coordinates[1] - 1) % self.t == new_coordinates[1] and leftness == max_leftness and \
+                            new_coordinates[1] == (self.cluster_positions[cluster_nr][1] - 1) % self.t:
                         self.cluster_positions[cluster_nr] = new_coordinates
+
                     if new_coordinates == (x, y):
                         break
                 # look where to find next cluster

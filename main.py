@@ -5,10 +5,10 @@ import time
 
 
 def main():
-    n = 16  # number of lattice points
-    N = 16  # number of half time steps (#even + #odd)
+    n = 25  # number of lattice points
+    N = 25  # number of half time steps (#even + #odd)
     beta = 0.1  # beta
-    mc_steps = 100000  # number of mc steps
+    mc_steps = 1000  # number of mc steps
 
     epsilon = beta / N
     t = 70
@@ -20,8 +20,8 @@ def main():
     w_b = t / np.sqrt(m ** 2 + t ** 2) * np.sinh(epsilon * np.sqrt(m ** 2 + t ** 2)) * np.exp(-epsilon * u / 4)
     w_c = 0.5 * m / np.sqrt(m ** 2 + t ** 2) * np.sinh(epsilon * np.sqrt(m ** 2 + t ** 2)) * np.exp(-epsilon * u / 4)
 
-    w_a = 0.25
-    w_b = 0.75
+    w_a = 0.5
+    w_b = 0.5
 
     algorithm = MeronAlgorithmSpinHalfMassless(n, N, w_a, w_b, beta, mc_steps)
     t0 = time.time()
