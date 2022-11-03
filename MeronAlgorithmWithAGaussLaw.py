@@ -268,4 +268,3 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
     def _test_group_assignment(self):
         if -1 in self.cluster_group:
             raise 'Not all clusters have been assigned a group'
-        # TODO: Think of more creative tests

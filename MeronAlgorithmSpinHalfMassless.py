@@ -1,23 +1,18 @@
 from MeronAlgorithmWithAGaussLaw import MeronAlgorithmWithAGaussLaw
 import numpy as np
 from itertools import product
-import matplotlib.pyplot as plt
 import random
 
 
 class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
     def __init__(self, n, t, w_a, w_b, beta, mc_steps):
         MeronAlgorithmWithAGaussLaw.__init__(self, n, t, w_a, w_b, beta, mc_steps)
-        # number of times a neutral cluster wraps horizontally
+
+    def _reset(self):
+        MeronAlgorithmWithAGaussLaw._reset(self)
         self.horizontal_winding = np.array([0])
         self.horizontal_winding_order = []
         self.horizontally_winding_clusters_exist = False
-
-        # fermion lattice initialized to reference configuration
-        self.fermion = np.full((self.n, self.t), False)
-        for i in range(self.n // 2):
-            for j in range(self.t):
-                self.fermion[2 * i, j] = True
 
     def _charge_automaton(self, row, charge_index, case_character):
         next_row = -1
@@ -282,9 +277,11 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                     reweight_factor *= self.w_a / normalizing_factor
                 elif self.fermion[x, y] == self.fermion[x, (y + 1) % self.t]:
                     if (self.fermion[x, y] and y % 2 == 0) or ((not self.fermion[x, y]) and y % 2 == 1):
-                        reweight_factor *= (self.w_a - 2 * self.w_c) / normalizing_factor
+                        # reweight_factor *= (self.w_a - 2 * self.w_c) / normalizing_factor
+                        pass
                     else:
-                        reweight_factor *= (self.w_a + 2 * self.w_c) / normalizing_factor
+                        # reweight_factor *= (self.w_a + 2 * self.w_c) / normalizing_factor
+                        pass
                 else:
                     raise ("fermion got flipped wrong")
         return reweight_factor

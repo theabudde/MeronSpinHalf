@@ -1,7 +1,6 @@
 import random
 import numpy as np
 from PIL import Image, ImageDraw
-import matplotlib.pyplot as plt
 from itertools import product
 
 

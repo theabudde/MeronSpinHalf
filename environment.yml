@@ -1,0 +1,7 @@
+name: MeronAlgorithm2
+channels:
+  - conda-forge
+dependencies:
+  - numpy
+  - pillow
+  - python=3.10
