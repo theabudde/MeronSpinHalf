@@ -1,36 +1,40 @@
 import numpy as np
 from MeronAlgorithmSpinHalfMassless import MeronAlgorithmSpinHalfMassless
 from MeronAlgorithm import MeronAlgorithm
+from MeronAlgorithmImprovedEstimators import MeronAlgorithmImprovedEstimators
 import time
+import sys
 
 
 def main():
-    n = 10  # number of lattice points
-    N = 10  # number of half time steps (#even + #odd)
-    beta = 0.1  # beta
-    mc_steps = 1000  # number of mc steps
+    mc_steps = 100000  # number of mc steps
+    n = 8  # number of lattice points
+    U = 1
 
-    epsilon = beta / N
-    t = 70
-    m = 1
-    u = - 2 / epsilon * np.log(np.cosh(epsilon * np.sqrt(m ** 2 + t ** 2)) - t / np.sqrt(m ** 2 + t ** 2) * np.sinh(
-        epsilon * np.sqrt(m ** 2 + t ** 2)))
+    original_stdout = sys.stdout
+    with open('correlation_function.txt', 'w') as f:
+        f.write(f'mc_steps = {mc_steps}\n')
+        f.write(f'n = {n}\n')
+        f.write(f'U = {U}\n')
+        f.write('N, beta, site, w_a, w_b, time, result\n')
 
-    w_a = np.exp(epsilon * u / 4)
-    w_b = t / np.sqrt(m ** 2 + t ** 2) * np.sinh(epsilon * np.sqrt(m ** 2 + t ** 2)) * np.exp(-epsilon * u / 4)
-    w_c = 0.5 * m / np.sqrt(m ** 2 + t ** 2) * np.sinh(epsilon * np.sqrt(m ** 2 + t ** 2)) * np.exp(-epsilon * u / 4)
+    for N in [10, 100, 1000]:
+        for beta in [0.1, 1, 10, 100]:
+            for site in range(1, 4):
+                if beta / N > 0.15:
+                    continue
+                print('starting run N =', N, ' beta =', beta)
 
-    w_a = 0.5
-    w_b = 0.5
+                w_a = np.cosh(beta / N * U / 2)
+                w_b = np.sinh(beta / N * U / 2)
 
-    algorithm = MeronAlgorithmSpinHalfMassless(n, N, w_a, w_b, mc_steps)
-    t0 = time.time()
-    # print_nr = 100
-    for mc in range(mc_steps):
-        algorithm.mc_step()
-    t1 = time.time()
+                algorithm = MeronAlgorithmImprovedEstimators(n, N, w_a, w_b, mc_steps)
+                t0 = time.time()
+                result = algorithm.calculate_improved_two_point_function(0, 1)
+                t1 = time.time()
 
-    print('Code took:', t1 - t0)
+                with open('correlation_function.txt', 'a') as f:
+                    f.write(f'{N}, {beta}, {site}, {w_a}, {w_b}, {t1 - t0}, {result} \n')
 
 
 if __name__ == "__main__":

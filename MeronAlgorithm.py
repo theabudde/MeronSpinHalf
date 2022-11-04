@@ -196,4 +196,3 @@ class MeronAlgorithm:
         self._find_clusters()
         self.flip = [random.random() < 0.5 for i in range(self.n_clusters)]
         self._flip()
-        self.draw_bonds()
