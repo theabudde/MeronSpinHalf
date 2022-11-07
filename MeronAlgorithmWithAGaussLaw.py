@@ -268,3 +268,7 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
     def _test_group_assignment(self):
         if -1 in self.cluster_group:
             raise 'Not all clusters have been assigned a group'
+
+    @abstractmethod
+    def charge_automaton(self, row, charge_index, case_character):
+        pass
