@@ -6,3 +6,5 @@ config.jpg
 __pycache__/
 
 .DS_Store
+
+*.txt

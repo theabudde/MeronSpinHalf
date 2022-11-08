@@ -57,7 +57,8 @@ class MeronAlgorithmSpinHalfMassive(MeronAlgorithmSpinHalfMassless):
         self.mass_factor = self.mass_factor_per_bond * np.array(self.mass_factor)
 
     def charge_automaton(self, row, charge_index, case_character):
-        next_row, arrow_weight = MeronAlgorithmSpinHalfMassless.charge_automaton(row, charge_index, case_character)
+        next_row, arrow_weight = MeronAlgorithmSpinHalfMassless.charge_automaton(self, row, charge_index,
+                                                                                 case_character)
         if case_character == 3:
             arrow_weight *= self.mass_factor[self.charged_cluster_order[charge_index]]
         return next_row, arrow_weight
@@ -68,14 +69,13 @@ class MeronAlgorithmSpinHalfMassive(MeronAlgorithmSpinHalfMassless):
         for i in range(len(self.cluster_order[start_cluster])):
             result = (result + 1.0) * (
                     self._calculate_neutral_combinations(self.cluster_order[start_cluster][i],
-                                                         not plus_minus) * self.mass_factor[
-                        self.cluster_order[start_cluster][i]] + 1.0) - 1.0
+                                                         not plus_minus) + 1.0) - 1.0
         # calculate the effect of the loop
         if self.cluster_charge[start_cluster] == 0:
             if plus_minus:
-                result = np.array([result[0] + result[1] + 1.0, result[1]])
+                result = np.array([result[0] + (result[1] + 1.0) * self.mass_factor[start_cluster], result[1]])
             else:
-                result = np.array([result[0], result[0] + result[1] + 1.0])
+                result = np.array([result[0], (result[0] + 1.0) * self.mass_factor[start_cluster] + result[1]])
         # save result
         if start_cluster >= 0:
             self.cluster_combinations[start_cluster] = result
