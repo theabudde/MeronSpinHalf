@@ -5,29 +5,37 @@ from MeronAlgorithmImprovedEstimators import MeronAlgorithmImprovedEstimators
 import time
 import scipy
 import pandas as pd
+import sys
 
 
-def main():
-    mc_steps = 100000  # number of mc steps
-    n = 8  # number of lattice points
-    U = 2
+def main(argv):
+    # argv parameters: U, t, beta, lattice_width, time_steps, mc_steps, result_path
+    U = float(argv[1])
+    t = float(argv[2])
+    beta = float(argv[3])
+    lattice_width = int(argv[4])
+    if lattice_width % 2 != 0:
+        raise ValueError('lattice can not have an odd number of sites')
+    if lattice_width < 4:
+        raise ValueError('Algorithm only works for grid sizes 4 and higher')
+    time_steps = int(argv[5])
+    mc_steps = int(argv[6])
+    if mc_steps % 100 != 0:
+        raise ValueError('error can only be calculated if mc steps is a multiple of 100')
+    result_path = argv[7]
 
-    t = U / 2
+    eps = beta / time_steps
+    if eps > 0.15:
+        return
 
-    for N in [20, 200]:
-        for beta in [0.1, 1, 10, 100]:
-            eps = 2 * beta / N
-            if eps > 0.15:
-                continue
-            print('starting run N =', N, ' beta =', beta)
+    w_a = np.exp(- eps * U / 4)
+    w_b = np.exp(eps * U / 4) * np.sinh(eps * t)
 
-            w_a = np.exp(- eps * U / 4)
-            w_b = np.exp(eps * U / 4) * np.sinh(eps * t)
-
-            algorithm = MeronAlgorithmImprovedEstimators(n, N, w_a, w_b, mc_steps)
-            # algorithm.produce_data(U, t, beta, n, N, mc_steps)
-            algorithm.plot_data(U, t, beta, n, N, mc_steps)
+    algorithm = MeronAlgorithmImprovedEstimators(lattice_width, 2 * time_steps, w_a, w_b, mc_steps)
+    for i in range(1000):
+        algorithm.mc_step()
+    algorithm.produce_data(U, t, beta, lattice_width, time_steps, mc_steps, result_path)
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv)

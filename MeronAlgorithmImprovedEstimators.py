@@ -3,6 +3,7 @@ import numpy as np
 from astropy.stats import jackknife_stats
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
 
 
 class MeronAlgorithmImprovedEstimators(MeronAlgorithm):
@@ -60,7 +61,7 @@ class MeronAlgorithmImprovedEstimators(MeronAlgorithm):
             self.improved_sign += self._config_sign()
         return self.improved_two_point_function / self.improved_sign
 
-    def produce_data(self, U, t, beta, n, N, mc_steps):
+    def produce_data(self, U, t, beta, n, N, mc_steps, output_path):
         for i in range(1000):
             self.mc_step()
         result = []
@@ -76,7 +77,8 @@ class MeronAlgorithmImprovedEstimators(MeronAlgorithm):
 
         data = pd.DataFrame(np.transpose(np.array([range(self.n), average, standard_deviation])),
                             columns=['site', 'average', 'error'])
-        data.to_csv(f'correlation_function_U={U}_t={t}_beta={beta}_L={n}_T={N}_mcsteps={mc_steps}.csv')
+        data.to_csv(os.path.join(output_path,
+                                 f'correlation_function_U={U}_t={t}_beta={beta}_L={n}_T={N}_mcsteps={mc_steps}.csv'))
 
     def plot_data(self, U, t, beta, n, N, mc_steps):
         data = pd.read_csv(f'correlation_function_U={U}_t={t}_beta={beta}_L={n}_T={N}_mcsteps={mc_steps}.csv')
