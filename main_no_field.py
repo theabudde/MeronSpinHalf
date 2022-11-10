@@ -3,38 +3,30 @@ from MeronAlgorithmSpinHalfMassless import MeronAlgorithmSpinHalfMassless
 from MeronAlgorithm import MeronAlgorithm
 from MeronAlgorithmImprovedEstimators import MeronAlgorithmImprovedEstimators
 import time
-import sys
+import scipy
+import pandas as pd
 
 
 def main():
     mc_steps = 100000  # number of mc steps
     n = 8  # number of lattice points
-    U = 1
+    U = 2
 
-    original_stdout = sys.stdout
-    with open('correlation_function.txt', 'w') as f:
-        f.write(f'mc_steps = {mc_steps}\n')
-        f.write(f'n = {n}\n')
-        f.write(f'U = {U}\n')
-        f.write('N, beta, site, w_a, w_b, time, result\n')
+    t = U / 2
 
-    for N in [10, 100, 1000]:
+    for N in [20, 200]:
         for beta in [0.1, 1, 10, 100]:
-            for site in range(1, 4):
-                if beta / N > 0.15:
-                    continue
-                print('starting run N =', N, ' beta =', beta)
+            eps = 2 * beta / N
+            if eps > 0.15:
+                continue
+            print('starting run N =', N, ' beta =', beta)
 
-                w_a = np.cosh(beta / N * U / 2)
-                w_b = np.sinh(beta / N * U / 2)
+            w_a = np.exp(- eps * U / 4)
+            w_b = np.exp(eps * U / 4) * np.sinh(eps * t)
 
-                algorithm = MeronAlgorithmImprovedEstimators(n, N, w_a, w_b, mc_steps)
-                t0 = time.time()
-                result = algorithm.calculate_improved_two_point_function(0, 1)
-                t1 = time.time()
-
-                with open('correlation_function.txt', 'a') as f:
-                    f.write(f'{N}, {beta}, {site}, {w_a}, {w_b}, {t1 - t0}, {result} \n')
+            algorithm = MeronAlgorithmImprovedEstimators(n, N, w_a, w_b, mc_steps)
+            # algorithm.produce_data(U, t, beta, n, N, mc_steps)
+            algorithm.plot_data(U, t, beta, n, N, mc_steps)
 
 
 if __name__ == "__main__":

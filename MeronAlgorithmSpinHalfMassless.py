@@ -293,7 +293,7 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
         for i in range(self.mc_steps):
             self.mc_step()
             if self.cluster_id[site_1, 0] == self.cluster_id[site_2, 0]:
-                result += 1 / 4
+                result += 1
         return result / self.mc_steps
 
     def mc_step(self):

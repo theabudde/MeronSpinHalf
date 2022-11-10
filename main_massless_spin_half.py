@@ -9,7 +9,7 @@ import sys
 def main():
     mc_steps = 100000  # number of mc steps
     n = 8  # number of lattice points
-    U = 1
+    U = 2
 
     original_stdout = sys.stdout
     with open('correlation_function.txt', 'w') as f:
@@ -20,7 +20,7 @@ def main():
 
     for N in [10, 100]:
         for beta in [0.1, 1, 10]:
-            for site in range(1, 4):
+            for site in range(1, 5):
                 if beta / N > 0.15:
                     continue
                 print('starting run N =', N, ' beta =', beta, ' site =', site)
