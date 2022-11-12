@@ -8,4 +8,4 @@
 #SBATCH --error="$0_no_field.err"
 #SBATCH --open-mode=truncate
 
-python main_no_field.py 2 1 10 8 "$0" 200000 ./Data
+python ./main_no_field.py 2 1 10 8 "$0" 200000 ./Data
