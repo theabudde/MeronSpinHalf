@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env python
 
 #SBATCH -n 1
 #SBATCH --time=3-0
