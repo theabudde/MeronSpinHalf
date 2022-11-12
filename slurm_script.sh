@@ -6,4 +6,4 @@
 #SBATCH --output=scaling_analysis.out
 #SBATCH --error=scaling_analysis.err
 
-python main_no_field 2 1 10 8 "$0" 200000 ./Data
+python main_no_field.py 2 1 10 8 "$0" 200000 ./Data
