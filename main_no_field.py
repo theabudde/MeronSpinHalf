@@ -1,6 +1,4 @@
 import numpy as np
-from MeronAlgorithmSpinHalfMassless import MeronAlgorithmSpinHalfMassless
-from MeronAlgorithm import MeronAlgorithm
 from MeronAlgorithmImprovedEstimators import MeronAlgorithmImprovedEstimators
 import time
 import scipy
