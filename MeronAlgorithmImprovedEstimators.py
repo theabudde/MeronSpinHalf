@@ -61,7 +61,7 @@ class MeronAlgorithmImprovedEstimators(MeronAlgorithm):
             self.improved_sign += self._config_sign()
         return self.improved_sign, self.improved_two_point_function
 
-    def produce_data(self, U, t, beta, n, N, mc_steps, output_path):
+    def produce_data(self, U, t, beta, n, N, mc_steps, output_path, job_array_id):
         for i in range(1000):
             self.mc_step()
         result = []
@@ -73,7 +73,7 @@ class MeronAlgorithmImprovedEstimators(MeronAlgorithm):
                             columns=['sign', 'corr_0', 'corr_1', 'corr_2', 'corr_3', 'corr_4', 'corr_5', 'corr_6',
                                      'corr_7'])
         data.to_csv(os.path.join(output_path,
-                                 f'correlation_function_U={U}_t={t}_beta={beta}_L={n}_T={N}_mcsteps={mc_steps}.csv'))
+                                 f'correlation_function_U={U}_t={t}_beta={beta}_L={n}_T={N}_mcsteps={mc_steps}_job_id={job_array_id}.csv'))
 
     def plot_data(self, U, t, beta, n, N, mc_steps):
         data = pd.read_csv(f'correlation_function_U={U}_t={t}_beta={beta}_L={n}_T={N}_mcsteps={mc_steps}.csv')
