@@ -1,6 +1,5 @@
 from MeronAlgorithm import MeronAlgorithm
 import numpy as np
-from astropy.stats import jackknife_stats
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
