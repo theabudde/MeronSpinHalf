@@ -59,24 +59,19 @@ class MeronAlgorithmImprovedEstimators(MeronAlgorithm):
             self._calculate_merons()
             self.improved_two_point_function += self._two_point_functions()
             self.improved_sign += self._config_sign()
-        return self.improved_two_point_function / self.improved_sign
+        return self.improved_sign, self.improved_two_point_function
 
     def produce_data(self, U, t, beta, n, N, mc_steps, output_path):
         for i in range(1000):
             self.mc_step()
         result = []
         for i in range(100):
-            result.append(self.calculate_improved_two_point_function(mc_steps // 100))
-        result = np.array(result)
-        average = np.zeros(self.n)
-        standard_deviation = np.zeros(self.n)
-        for i in range(self.n):
-            jacknife_result = jackknife_stats(result[:, i], np.average)
-            average[i] = jacknife_result[0]
-            standard_deviation[i] = jacknife_result[2]
+            sign, two_point = self.calculate_improved_two_point_function(mc_steps // 100)
+            result.append(np.concatenate((np.array([sign]), two_point)))
 
-        data = pd.DataFrame(np.transpose(np.array([range(self.n), average, standard_deviation])),
-                            columns=['site', 'average', 'error'])
+        data = pd.DataFrame(result,
+                            columns=['sign', 'corr_0', 'corr_1', 'corr_2', 'corr_3', 'corr_4', 'corr_5', 'corr_6',
+                                     'corr_7'])
         data.to_csv(os.path.join(output_path,
                                  f'correlation_function_U={U}_t={t}_beta={beta}_L={n}_T={N}_mcsteps={mc_steps}.csv'))
 
