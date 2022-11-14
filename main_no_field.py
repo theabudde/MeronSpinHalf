@@ -7,7 +7,7 @@ import sys
 
 
 def main(argv):
-    # argv parameters: U, t, beta, lattice_width, time_steps, mc_steps, result_path
+    # argv parameters: U, t, beta, lattice_width, time_steps, mc_steps, result_path, job_array_id
     U = float(argv[1])
     t = float(argv[2])
     beta = float(argv[3])
@@ -21,7 +21,7 @@ def main(argv):
     if mc_steps % 100 != 0:
         raise ValueError('error can only be calculated if mc steps is a multiple of 100')
     result_path = argv[7]
-    jobid = sys.getenv('SLURM_ARRAY_TASK_ID')
+    job_array_id = argv[8]
 
     eps = beta / time_steps
     if eps > 0.15:
@@ -33,7 +33,7 @@ def main(argv):
     algorithm = MeronAlgorithmImprovedEstimators(lattice_width, 2 * time_steps, w_a, w_b, mc_steps)
     for i in range(1000):
         algorithm.mc_step()
-    algorithm.produce_data(U, t, beta, lattice_width, time_steps, mc_steps, result_path, jobid)
+    algorithm.produce_data(U, t, beta, lattice_width, time_steps, mc_steps, result_path, job_array_id)
 
 
 if __name__ == "__main__":

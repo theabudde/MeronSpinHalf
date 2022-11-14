@@ -8,4 +8,4 @@
 #SBATCH --error="./output/%j_%a.err"
 #SBATCH --open-mode=truncate
 
-python ./main_no_field.py 2 1 1 8 10 100000 /cluster/home/tbudde/MeronSpinHalf/Data
+python ./main_no_field.py 2 1 1 8 10 100000 /cluster/home/tbudde/MeronSpinHalf/Data $SLURM_ARRAY_TASK_ID
