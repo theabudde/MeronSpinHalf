@@ -297,11 +297,11 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
         return result / self.mc_steps
 
     def mc_step(self):
-        # reset to reference config
-        self._reset()
-
         # place new bonds
         self._assign_bonds()
+
+        # reset to reference config
+        self._reset()
 
         # find clusters
         self._find_clusters()
