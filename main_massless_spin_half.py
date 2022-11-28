@@ -12,6 +12,8 @@ import sys
 
 def main(argv):
     # argv parameters: U, t, beta, lattice_width, time_steps, mc_steps, result_path, job_array_id
+    if len(argv) != 9:
+        raise ValueError('Need seven parameters')
     U = float(argv[1])
     t = float(argv[2])
     beta = float(argv[3])
@@ -25,7 +27,6 @@ def main(argv):
     if mc_steps % 10 != 0:
         raise ValueError('error can only be calculated if mc steps is a multiple of 10')
     result_path = argv[7]
-    job_array_id = argv[8]
 
     eps = beta / time_steps
     if eps > 0.15:
@@ -35,16 +36,16 @@ def main(argv):
     w_b = np.exp(eps * U / 4) * np.sinh(eps * t)
 
     algorithm = MeronAlgorithmSpinHalfMassless(lattice_width, 2 * time_steps, w_a, w_b, mc_steps)
-    for i in range(10000):
+    for i in range(100):
         algorithm.mc_step()
     output_path = os.path.join(result_path,
                                f'correlation_function_U={U}_t={t}_beta={beta}_L={lattice_width}_T={time_steps}.csv')
     columns = np.array(['n_steps'] + [f'corr_{i}' for i in range(lattice_width)])
-    for i in range(10):
-        two_point, n_steps = algorithm.improved_two_point_function(mc_steps // 10)
-        data = np.concatenate((np.array([n_steps]), two_point))
-        data = pd.DataFrame(np.array([data]), columns=columns)
-        data.to_csv(output_path, mode='a', header=not os.path.exists(output_path))
+
+    two_point, n_steps = algorithm.improved_two_point_function(mc_steps)
+    data = np.concatenate((np.array([n_steps]), two_point))
+    data = pd.DataFrame(np.array([data]), columns=columns)
+    data.to_csv(output_path, mode='a', header=not os.path.exists(output_path))
 
 
 if __name__ == "__main__":

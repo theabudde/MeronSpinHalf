@@ -318,6 +318,9 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                     result[site] += 1
                 else:
                     result[site] -= 1
+        for site in range(self.n):
+            if site % 2:
+                result[site] *= -1
         return result, n_steps
 
     def flip_histogram(self):
