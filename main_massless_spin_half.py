@@ -1,4 +1,8 @@
+import os
+
 import numpy as np
+import pandas as pd
+
 from MeronAlgorithmSpinHalfMassless import MeronAlgorithmSpinHalfMassless
 from MeronAlgorithm import MeronAlgorithm
 from MeronAlgorithmImprovedEstimators import MeronAlgorithmImprovedEstimators
@@ -6,36 +10,42 @@ import time
 import sys
 
 
-def main():
-    mc_steps = 100000  # number of mc steps
-    n = 8  # number of lattice points
-    U = 2
+def main(argv):
+    # argv parameters: U, t, beta, lattice_width, time_steps, mc_steps, result_path, job_array_id
+    U = float(argv[1])
+    t = float(argv[2])
+    beta = float(argv[3])
+    lattice_width = int(argv[4])
+    if lattice_width % 2 != 0:
+        raise ValueError('lattice can not have an odd number of sites')
+    if lattice_width < 4:
+        raise ValueError('Algorithm only works for grid sizes 4 and higher')
+    time_steps = int(argv[5])
+    mc_steps = int(argv[6])
+    if mc_steps % 10 != 0:
+        raise ValueError('error can only be calculated if mc steps is a multiple of 10')
+    result_path = argv[7]
+    job_array_id = argv[8]
 
-    original_stdout = sys.stdout
-    with open('correlation_function.txt', 'w') as f:
-        f.write(f'mc_steps = {mc_steps}\n')
-        f.write(f'n = {n}\n')
-        f.write(f'U = {U}\n')
-        f.write('N, beta, site, w_a, w_b, time, result\n')
+    eps = beta / time_steps
+    if eps > 0.15:
+        return
 
-    for N in [10, 100]:
-        for beta in [0.1, 1, 10]:
-            for site in range(1, 5):
-                if beta / N > 0.15:
-                    continue
-                print('starting run N =', N, ' beta =', beta, ' site =', site)
+    w_a = np.exp(- eps * U / 4)
+    w_b = np.exp(eps * U / 4) * np.sinh(eps * t)
 
-                w_a = np.cosh(beta / N * U / 2)
-                w_b = np.sinh(beta / N * U / 2)
-
-                algorithm = MeronAlgorithmSpinHalfMassless(n, N, w_a, w_b, mc_steps)
-                t0 = time.time()
-                result = algorithm.improved_two_point_function(0, site)
-                t1 = time.time()
-
-                with open('correlation_function.txt', 'a') as f:
-                    f.write(f'{N}, {beta}, {site}, {w_a}, {w_b}, {t1 - t0}, {result} \n')
+    algorithm = MeronAlgorithmSpinHalfMassless(lattice_width, 2 * time_steps, w_a, w_b, mc_steps)
+    for i in range(10000):
+        algorithm.mc_step()
+    output_path = os.path.join(result_path,
+                               f'correlation_function_U={U}_t={t}_beta={beta}_L={lattice_width}_T={time_steps}.csv')
+    columns = np.array(['n_steps'] + [f'corr_{i}' for i in range(lattice_width)])
+    for i in range(10):
+        two_point, n_steps = algorithm.improved_two_point_function(mc_steps // 10)
+        data = np.concatenate((np.array([n_steps]), two_point))
+        data = pd.DataFrame(np.array([data]), columns=columns)
+        data.to_csv(output_path, mode='a', header=not os.path.exists(output_path))
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv)

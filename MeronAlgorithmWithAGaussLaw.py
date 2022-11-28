@@ -11,7 +11,7 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
         MeronAlgorithm.__init__(self, n, t, w_a, w_b, mc_steps)
         # charge of each cluster in order cluster_id
         self.cluster_charge = np.array([0])
-        # order of charged clusters only or if only neutrals exist, the horizontally winding clusters
+        # order of charged clusters only or if only neutrals exist, the horizontally winding clusters, starts with negative cluster
         self.charged_cluster_order = []
         # left neighbor going counterclockwise of every neutral cluster
         self.cluster_group = np.array([0])
@@ -78,11 +78,26 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
                 self.cluster_charge[self.cluster_id[i, 0]] -= 1
 
         # determine order of charged clusters
+        saved_positive_cluster = -1
+        saved_positive_cluster_exists = False
+        is_first_cluster = True
         for i in range(self.n):
             if self.cluster_charge[self.cluster_id[i, 0]] != 0 and not self.cluster_id[
                                                                            i, 0] in self.charged_cluster_order:
-                self.charged_cluster_order.append(self.cluster_id[i, 0])
-                self.charged_clusters_exist = True
+                if is_first_cluster:
+                    is_first_cluster = False
+                    if self.cluster_charge[self.cluster_id[i, 0]] > 0:
+                        saved_positive_cluster = self.cluster_id[i, 0]
+                        saved_positive_cluster_exists = True
+                    else:
+                        self.charged_cluster_order.append(self.cluster_id[i, 0])
+                        self.charged_clusters_exist = True
+                elif self.cluster_id[i, 0] != saved_positive_cluster:
+                    self.charged_cluster_order.append(self.cluster_id[i, 0])
+                    self.charged_clusters_exist = True
+        if saved_positive_cluster_exists:
+            self.charged_cluster_order.append(saved_positive_cluster)
+            self.charged_clusters_exist = True
         self.charge_combinations = np.zeros((self.n_clusters, 2))
 
     def _identify_horizontal_winding(self):
@@ -96,14 +111,34 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
             else:
                 self.horizontal_winding[self.cluster_id[0, i]] -= 1
 
+        # determine order of charged clusters
+        saved_positive_cluster = -1
+        saved_positive_cluster_exists = False
+        is_first_cluster = True
+        saved_cluster_position = (-1, -1)
+        # TODO: make sure negative cluster is first and count from bottom to top so neutrals are on right side
         # determine order of winding clusters
-        for i in range(self.t):
+        for i in range(self.t - 1, -1, -1):
             if self.horizontal_winding[self.cluster_id[0, i]] != 0 and not self.cluster_id[
                                                                                0, i] in self.horizontal_winding_order:
-                self.horizontal_winding_order.append(self.cluster_id[0, i])
-                self.cluster_positions[self.cluster_id[0, i]] = (0, i)
-                self.horizontally_winding_clusters_exist = True
-        # TODO: verify clockwise orientation rules for horizontal winding
+                if is_first_cluster:
+                    is_first_cluster = False
+                    if self.horizontal_winding[self.cluster_id[0, i]] > 0:
+                        saved_positive_cluster = self.cluster_id[0, i]
+                        saved_positive_cluster_exists = True
+                        saved_cluster_position = (0, i)
+                    else:
+                        self.horizontal_winding_order.append(self.cluster_id[0, i])
+                        self.cluster_positions[self.cluster_id[0, i]] = (0, i)
+                        self.horizontally_winding_clusters_exist = True
+                elif self.cluster_id[0, i] != saved_positive_cluster:
+                    self.horizontal_winding_order.append(self.cluster_id[0, i])
+                    self.cluster_positions[self.cluster_id[0, i]] = (0, i)
+                    self.horizontally_winding_clusters_exist = True
+        if saved_positive_cluster_exists:
+            self.horizontal_winding_order.append(saved_positive_cluster)
+            self.cluster_positions[saved_positive_cluster] = saved_cluster_position
+            self.horizontally_winding_clusters_exist = True
 
     # returns 1 for clockwise, 0 for anticlockwise
     def _direction_cluster_is_traversed(self, top_left_position_of_cluster):
