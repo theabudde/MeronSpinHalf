@@ -8,4 +8,4 @@
 #SBATCH --error="./output/%j_%a.err"
 #SBATCH --open-mode=truncate
 
-python ./main_no_field.py 2 1 1 8 100 100000 /cluster/home/tbudde/MeronSpinHalf/Data
+python ./main_massless_spin_half.py 2 1 1 8 100 100000 /cluster/home/tbudde/MeronSpinHalf/Data
