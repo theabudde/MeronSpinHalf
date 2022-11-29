@@ -292,7 +292,7 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
     def _test_gauss_law(self):
         if np.amax(self.gauge_field) - np.amin(self.gauge_field) > 1:
             # self.draw_bonds()
-            with open(os.path.join(self.data_file_path, '/ErrorObjects/' + self.job_array_nr + '.pkl'),
+            with open(os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'),
                       'wb') as outp:  # Overwrites any existing file.
                 pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
             raise ValueError('gauss law broken')
