@@ -77,6 +77,7 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
             else:
                 self.cluster_charge[self.cluster_id[i, 0]] -= 1
 
+        # TODO find out whether there are an even or odd nr of consecutive occupancies and only add to order if its odd
         # determine order of charged clusters
         saved_positive_cluster = -1
         saved_positive_cluster_exists = False
@@ -84,17 +85,31 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
         for i in range(self.n):
             if self.cluster_charge[self.cluster_id[i, 0]] != 0 and not self.cluster_id[
                                                                            i, 0] in self.charged_cluster_order:
-                if is_first_cluster:
-                    is_first_cluster = False
-                    if self.cluster_charge[self.cluster_id[i, 0]] > 0:
-                        saved_positive_cluster = self.cluster_id[i, 0]
-                        saved_positive_cluster_exists = True
+                n_consecutive_cluster_occupancies = 1
+                for j in range(1, self.n):
+                    if self.cluster_id[i, 0] == self.cluster_id[(i + j) % self.n, 0]:
+                        n_consecutive_cluster_occupancies += 1
                     else:
-                        self.charged_cluster_order.append(self.cluster_id[i, 0])
-                        self.charged_clusters_exist = True
-                elif self.cluster_id[i, 0] != saved_positive_cluster:
-                    self.charged_cluster_order.append(self.cluster_id[i, 0])
-                    self.charged_clusters_exist = True
+                        break
+                for j in range(1, self.n):
+                    if self.cluster_id[i, 0] == self.cluster_id[(i - j) % self.n, 0]:
+                        n_consecutive_cluster_occupancies += 1
+                    else:
+                        break
+                if n_consecutive_cluster_occupancies % 2 == 1:
+                    if is_first_cluster:
+                        is_first_cluster = False
+                        if self.cluster_charge[self.cluster_id[i, 0]] > 0:
+                            saved_positive_cluster = self.cluster_id[i, 0]
+                            saved_positive_cluster_exists = True
+                        else:
+                            self.charged_cluster_order.append(self.cluster_id[i, 0])
+                            self.charged_clusters_exist = True
+                    elif self.cluster_id[i, 0] != saved_positive_cluster:
+                        if n_consecutive_cluster_occupancies % 2 == 1:
+                            self.charged_cluster_order.append(self.cluster_id[i, 0])
+                            self.charged_clusters_exist = True
+
         if saved_positive_cluster_exists:
             self.charged_cluster_order.append(saved_positive_cluster)
             self.charged_clusters_exist = True
@@ -121,20 +136,32 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
         for i in range(self.t - 1, -1, -1):
             if self.horizontal_winding[self.cluster_id[0, i]] != 0 and not self.cluster_id[
                                                                                0, i] in self.horizontal_winding_order:
-                if is_first_cluster:
-                    is_first_cluster = False
-                    if self.horizontal_winding[self.cluster_id[0, i]] > 0:
-                        saved_positive_cluster = self.cluster_id[0, i]
-                        saved_positive_cluster_exists = True
-                        saved_cluster_position = (0, i)
+                n_consecutive_cluster_occupancies = 1
+                for j in range(1, self.t):
+                    if self.cluster_id[0, i] == self.cluster_id[0, (i + j) % self.n]:
+                        n_consecutive_cluster_occupancies += 1
                     else:
+                        break
+                for j in range(1, self.t):
+                    if self.cluster_id[0, i] == self.cluster_id[0, (i - j) % self.n]:
+                        n_consecutive_cluster_occupancies += 1
+                    else:
+                        break
+                if n_consecutive_cluster_occupancies % 2 == 1:
+                    if is_first_cluster:
+                        is_first_cluster = False
+                        if self.horizontal_winding[self.cluster_id[0, i]] > 0:
+                            saved_positive_cluster = self.cluster_id[0, i]
+                            saved_positive_cluster_exists = True
+                            saved_cluster_position = (0, i)
+                        else:
+                            self.horizontal_winding_order.append(self.cluster_id[0, i])
+                            self.cluster_positions[self.cluster_id[0, i]] = (0, i)
+                            self.horizontally_winding_clusters_exist = True
+                    elif self.cluster_id[0, i] != saved_positive_cluster:
                         self.horizontal_winding_order.append(self.cluster_id[0, i])
                         self.cluster_positions[self.cluster_id[0, i]] = (0, i)
                         self.horizontally_winding_clusters_exist = True
-                elif self.cluster_id[0, i] != saved_positive_cluster:
-                    self.horizontal_winding_order.append(self.cluster_id[0, i])
-                    self.cluster_positions[self.cluster_id[0, i]] = (0, i)
-                    self.horizontally_winding_clusters_exist = True
         if saved_positive_cluster_exists:
             self.horizontal_winding_order.append(saved_positive_cluster)
             self.cluster_positions[saved_positive_cluster] = saved_cluster_position
