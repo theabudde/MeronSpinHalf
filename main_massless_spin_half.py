@@ -25,6 +25,7 @@ def main(argv):
     if mc_steps % 10 != 0:
         raise ValueError('error can only be calculated if mc steps is a multiple of 10')
     result_path = argv[7]
+    job_array_nr = argv[8]
 
     eps = beta / time_steps
     if eps > 0.15:
@@ -33,7 +34,8 @@ def main(argv):
     w_a = np.exp(- eps * U / 4)
     w_b = np.exp(eps * U / 4) * np.sinh(eps * t)
 
-    algorithm = MeronAlgorithmSpinHalfMassless(lattice_width, 2 * time_steps, w_a, w_b, mc_steps)
+    algorithm = MeronAlgorithmSpinHalfMassless(lattice_width, 2 * time_steps, w_a, w_b, mc_steps, result_path,
+                                               job_array_nr)
     for i in range(100):
         algorithm.mc_step()
     output_path = os.path.join(result_path,

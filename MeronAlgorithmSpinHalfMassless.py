@@ -1,3 +1,6 @@
+import os
+import pickle
+
 from MeronAlgorithmWithAGaussLaw import MeronAlgorithmWithAGaussLaw
 import numpy as np
 from itertools import product
@@ -6,8 +9,10 @@ import matplotlib.pyplot as plt
 
 
 class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
-    def __init__(self, n, t, w_a, w_b, mc_steps):
+    def __init__(self, n, t, w_a, w_b, mc_steps, data_file_path, job_array_nr):
         MeronAlgorithmWithAGaussLaw.__init__(self, n, t, w_a, w_b, mc_steps)
+        self.data_file_path = data_file_path
+        self.job_array_nr = job_array_nr
 
     def _reset(self):
         MeronAlgorithmWithAGaussLaw._reset(self)
@@ -286,9 +291,11 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
 
     def _test_gauss_law(self):
         if np.amax(self.gauge_field) - np.amin(self.gauge_field) > 1:
-            self.draw_bonds()
-            pass
-            raise 'gauss law broken'
+            # self.draw_bonds()
+            with open(os.path.join(self.data_file_path, '/ErrorObjects/' + self.job_array_nr + '.pkl'),
+                      'wb') as outp:  # Overwrites any existing file.
+                pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
+            raise ValueError('gauss law broken')
 
     def reweight_factor_vertical_bonds(self):
         reweight_factor = 1
