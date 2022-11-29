@@ -12,8 +12,6 @@ import sys
 
 def main(argv):
     # argv parameters: U, t, beta, lattice_width, time_steps, mc_steps, result_path, job_array_id
-    if len(argv) != 9:
-        raise ValueError('Need seven parameters')
     U = float(argv[1])
     t = float(argv[2])
     beta = float(argv[3])
