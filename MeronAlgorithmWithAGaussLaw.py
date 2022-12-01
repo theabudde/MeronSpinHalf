@@ -76,44 +76,47 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
                 self.cluster_charge[self.cluster_id[i, 0]] += 1
             else:
                 self.cluster_charge[self.cluster_id[i, 0]] -= 1
-
-        # TODO find out whether there are an even or odd nr of consecutive occupancies and only add to order if its odd
-        # determine order of charged clusters
-        saved_positive_cluster = -1
-        saved_positive_cluster_exists = False
-        is_first_cluster = True
-        for i in range(self.n):
-            if self.cluster_charge[self.cluster_id[i, 0]] != 0 and not self.cluster_id[
-                                                                           i, 0] in self.charged_cluster_order:
-                n_consecutive_cluster_occupancies = 1
-                for j in range(1, self.n):
-                    if self.cluster_id[i, 0] == self.cluster_id[(i + j) % self.n, 0]:
-                        n_consecutive_cluster_occupancies += 1
-                    else:
-                        break
-                for j in range(1, self.n):
-                    if self.cluster_id[i, 0] == self.cluster_id[(i - j) % self.n, 0]:
-                        n_consecutive_cluster_occupancies += 1
-                    else:
-                        break
-                if n_consecutive_cluster_occupancies % 2 == 1:
-                    if is_first_cluster:
-                        is_first_cluster = False
-                        if self.cluster_charge[self.cluster_id[i, 0]] > 0:
-                            saved_positive_cluster = self.cluster_id[i, 0]
-                            saved_positive_cluster_exists = True
-                        else:
-                            self.charged_cluster_order.append(self.cluster_id[i, 0])
-                            self.charged_clusters_exist = True
-                    elif self.cluster_id[i, 0] != saved_positive_cluster:
-                        if n_consecutive_cluster_occupancies % 2 == 1:
-                            self.charged_cluster_order.append(self.cluster_id[i, 0])
-                            self.charged_clusters_exist = True
-
-        if saved_positive_cluster_exists:
-            self.charged_cluster_order.append(saved_positive_cluster)
+        if np.max(self.cluster_charge) > 0:
             self.charged_clusters_exist = True
-        self.charge_combinations = np.zeros((self.n_clusters, 2))
+
+        if self.charged_clusters_exist:
+            # TODO find out whether there are an even or odd nr of consecutive occupancies and only add to order if its odd
+            # determine order of charged clusters
+            saved_positive_cluster = -1
+            saved_positive_cluster_exists = False
+            is_first_cluster = True
+            for i in range(self.n):
+                if self.cluster_charge[self.cluster_id[i, 0]] != 0 and not self.cluster_id[
+                                                                               i, 0] in self.charged_cluster_order:
+                    n_consecutive_cluster_occupancies = 1
+                    for j in range(1, self.n):
+                        if self.cluster_id[i, 0] == self.cluster_id[(i + j) % self.n, 0]:
+                            n_consecutive_cluster_occupancies += 1
+                        elif self.cluster_charge[self.cluster_id[(i + j) % self.n, 0]] == 0:
+                            continue
+                        else:
+                            break
+                    for j in range(1, self.n):
+                        if self.cluster_id[i, 0] == self.cluster_id[(i - j) % self.n, 0]:
+                            n_consecutive_cluster_occupancies += 1
+                        elif self.cluster_charge[self.cluster_id[(i - j) % self.n, 0]] == 0:
+                            continue
+                        else:
+                            break
+                    if n_consecutive_cluster_occupancies % 2 == 1:
+                        if is_first_cluster:
+                            is_first_cluster = False
+                            if self.cluster_charge[self.cluster_id[i, 0]] > 0:
+                                saved_positive_cluster = self.cluster_id[i, 0]
+                            else:
+                                self.charged_cluster_order.append(self.cluster_id[i, 0])
+                        elif self.cluster_id[i, 0] != saved_positive_cluster:
+                            if n_consecutive_cluster_occupancies % 2 == 1:
+                                self.charged_cluster_order.append(self.cluster_id[i, 0])
+
+            if saved_positive_cluster_exists:
+                self.charged_cluster_order.append(saved_positive_cluster)
+            self.charge_combinations = np.zeros((self.n_clusters, 2))
 
     def _identify_horizontal_winding(self):
         self.horizontal_winding_order = []
@@ -126,46 +129,51 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
             else:
                 self.horizontal_winding[self.cluster_id[0, i]] -= 1
 
-        # determine order of charged clusters
-        saved_positive_cluster = -1
-        saved_positive_cluster_exists = False
-        is_first_cluster = True
-        saved_cluster_position = (-1, -1)
-        # TODO: make sure negative cluster is first and count from bottom to top so neutrals are on right side
-        # determine order of winding clusters
-        for i in range(self.t - 1, -1, -1):
-            if self.horizontal_winding[self.cluster_id[0, i]] != 0 and not self.cluster_id[
-                                                                               0, i] in self.horizontal_winding_order:
-                n_consecutive_cluster_occupancies = 1
-                for j in range(1, self.t):
-                    if self.cluster_id[0, i] == self.cluster_id[0, (i + j) % self.n]:
-                        n_consecutive_cluster_occupancies += 1
-                    else:
-                        break
-                for j in range(1, self.t):
-                    if self.cluster_id[0, i] == self.cluster_id[0, (i - j) % self.n]:
-                        n_consecutive_cluster_occupancies += 1
-                    else:
-                        break
-                if n_consecutive_cluster_occupancies % 2 == 1:
-                    if is_first_cluster:
-                        is_first_cluster = False
-                        if self.horizontal_winding[self.cluster_id[0, i]] > 0:
-                            saved_positive_cluster = self.cluster_id[0, i]
-                            saved_positive_cluster_exists = True
-                            saved_cluster_position = (0, i)
+        if np.max(self.horizontal_winding) > 0:
+            self.horizontally_winding_clusters_exist = True
+
+        if self.horizontally_winding_clusters_exist:
+            # determine order of charged clusters
+            saved_positive_cluster = -1
+            saved_positive_cluster_exists = False
+            is_first_cluster = True
+            saved_cluster_position = (-1, -1)
+            # TODO: make sure negative cluster is first and count from bottom to top so neutrals are on right side
+            # determine order of winding clusters
+            for i in range(self.t - 1, -1, -1):
+                if self.horizontal_winding[self.cluster_id[0, i]] != 0 and not self.cluster_id[
+                                                                                   0, i] in self.horizontal_winding_order:
+                    n_consecutive_cluster_occupancies = 1
+                    for j in range(1, self.t):
+                        if self.cluster_id[0, i] == self.cluster_id[0, (i + j) % self.t]:
+                            n_consecutive_cluster_occupancies += 1
+                        elif self.cluster_charge[self.cluster_id[0, (i + j) % self.t]] == 0:
+                            continue
                         else:
+                            break
+                    for j in range(1, self.t):
+                        if self.cluster_id[0, i] == self.cluster_id[0, (i - j) % self.t]:
+                            n_consecutive_cluster_occupancies += 1
+                        elif self.cluster_charge[self.cluster_id[0, (i - j) % self.t]] == 0:
+                            continue
+                        else:
+                            break
+                    if n_consecutive_cluster_occupancies % 2 == 1:
+                        if is_first_cluster:
+                            is_first_cluster = False
+                            if self.horizontal_winding[self.cluster_id[0, i]] > 0:
+                                saved_positive_cluster = self.cluster_id[0, i]
+                                saved_positive_cluster_exists = True
+                                saved_cluster_position = (0, i)
+                            else:
+                                self.horizontal_winding_order.append(self.cluster_id[0, i])
+                                self.cluster_positions[self.cluster_id[0, i]] = (0, i)
+                        elif self.cluster_id[0, i] != saved_positive_cluster:
                             self.horizontal_winding_order.append(self.cluster_id[0, i])
                             self.cluster_positions[self.cluster_id[0, i]] = (0, i)
-                            self.horizontally_winding_clusters_exist = True
-                    elif self.cluster_id[0, i] != saved_positive_cluster:
-                        self.horizontal_winding_order.append(self.cluster_id[0, i])
-                        self.cluster_positions[self.cluster_id[0, i]] = (0, i)
-                        self.horizontally_winding_clusters_exist = True
-        if saved_positive_cluster_exists:
-            self.horizontal_winding_order.append(saved_positive_cluster)
-            self.cluster_positions[saved_positive_cluster] = saved_cluster_position
-            self.horizontally_winding_clusters_exist = True
+            if saved_positive_cluster_exists:
+                self.horizontal_winding_order.append(saved_positive_cluster)
+                self.cluster_positions[saved_positive_cluster] = saved_cluster_position
 
     # returns 1 for clockwise, 0 for anticlockwise
     def _direction_cluster_is_traversed(self, top_left_position_of_cluster):
