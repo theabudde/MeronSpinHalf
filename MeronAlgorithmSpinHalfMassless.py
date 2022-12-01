@@ -295,7 +295,8 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
             with open(os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'),
                       'wb') as outp:  # Overwrites any existing file.
                 pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
-            raise ValueError('gauss law broken')
+            raise ValueError('gauss law broken, pkl should be in',
+                             os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'))
 
     def reweight_factor_vertical_bonds(self):
         reweight_factor = 1
@@ -429,4 +430,5 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
         self._calculate_gauge_field()
         self._test_gauss_law()
 
+        self.draw_bonds()
         pass
