@@ -108,6 +108,7 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
                             is_first_cluster = False
                             if self.cluster_charge[self.cluster_id[i, 0]] > 0:
                                 saved_positive_cluster = self.cluster_id[i, 0]
+                                saved_positive_cluster_exists = True
                             else:
                                 self.charged_cluster_order.append(self.cluster_id[i, 0])
                         elif self.cluster_id[i, 0] != saved_positive_cluster:
