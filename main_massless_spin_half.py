@@ -36,7 +36,7 @@ def main(argv):
 
     algorithm = MeronAlgorithmSpinHalfMassless(lattice_width, 2 * time_steps, w_a, w_b, mc_steps, result_path,
                                                job_array_nr)
-    for i in range(10000):
+    for i in range(1000):
         algorithm.mc_step()
     output_path = os.path.join(result_path,
                                f'correlation_function_U={U}_t={t}_beta={beta}_L={lattice_width}_T={time_steps}.csv')

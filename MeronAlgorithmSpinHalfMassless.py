@@ -42,8 +42,6 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                         arrow_weight = mp_combinations + 1
                     else:
                         arrow_weight = pm_combinations + 1
-                elif case_character == 1:
-                    next_row = -1
             case 1:
                 if charge_index == 0:
                     next_row = -1
@@ -59,8 +57,6 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                         arrow_weight = mp_combinations + 1
                     else:
                         arrow_weight = pm_combinations + 1
-                else:
-                    next_row = -1
             case 2:
                 match case_character:
                     case 0:
@@ -69,17 +65,15 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                     case 1:
                         if charge > 0:
                             next_row = 4
-                            arrow_weight = pm_combinations
                         else:
                             next_row = 3
-                            arrow_weight = pm_combinations
+                        arrow_weight = pm_combinations
                     case 2:
                         if charge > 0:
                             next_row = 1
-                            arrow_weight = mp_combinations
                         else:
                             next_row = 0
-                            arrow_weight = mp_combinations
+                        arrow_weight = mp_combinations
                     case 3:
                         if charge_index == len(self.charged_cluster_order) - 1:
                             next_row = -1
@@ -119,8 +113,6 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                         arrow_weight = mp_combinations + 1
                     else:
                         arrow_weight = pm_combinations + 1
-                else:
-                    next_row = -1
         return next_row, arrow_weight
 
     def _calculate_neutral_combinations(self, start_cluster, plus_minus):
@@ -291,7 +283,6 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
 
     def _test_gauss_law(self):
         if np.amax(self.gauge_field) - np.amin(self.gauge_field) > 1:
-            # self.draw_bonds()
             with open(os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'),
                       'wb') as outp:  # Overwrites any existing file.
                 pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
