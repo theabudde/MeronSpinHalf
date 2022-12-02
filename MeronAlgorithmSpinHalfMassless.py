@@ -326,6 +326,8 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                     result[site] += 1
                 else:
                     result[site] -= 1
+            if i % (n_steps // 100) == 0:
+                print(f'i = {i}')
         for site in range(self.n):
             if site % 2:
                 result[site] *= -1
