@@ -432,5 +432,4 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
         self._calculate_gauge_field()
         self._test_gauss_law()
 
-        self.draw_bonds()
         pass
