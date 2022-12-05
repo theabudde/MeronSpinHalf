@@ -296,7 +296,7 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                 if self.gauge_field[- 1, i] != self.gauge_field[0, i] + 1:
                     return False
         return True
-    
+
     def reweight_factor_vertical_bonds(self):
         reweight_factor = 1
         normalizing_factor = self.w_a
@@ -436,6 +436,12 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
 
         self._flip()
         self._calculate_gauge_field()
-        self._test_gauss_law()
+        if not self._test_gauss_law():
+            with open(os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'),
+                      'wb') as outp:  # Overwrites any existing file.
+                pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
+            raise ValueError('gauss law broken, pkl should be in',
+                             os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'))
+
         # self.draw_bonds()
         # input('Let us wait for user input. Let me know how many seconds to sleep now.\n')
