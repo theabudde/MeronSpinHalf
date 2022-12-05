@@ -62,16 +62,54 @@ class SpinHalfBruteForce(MeronAlgorithm):
                     self.gauge_field[x + 1, 0] = self.gauge_field[x, 0] + 1
 
     def _test_gauss_law(self):
+        gauss_law_fulfilled = True
         if np.amax(self.gauge_field) - np.amin(self.gauge_field) > 1:
-            return False
+            gauss_law_fulfilled = False
         for i in range(self.t):
             if self.fermion[0, i] == 1:
                 if self.gauge_field[- 1, i] != self.gauge_field[0, i]:
-                    return False
+                    gauss_law_fulfilled = False
             else:
                 if self.gauge_field[- 1, i] != self.gauge_field[0, i] + 1:
-                    return False
-        return True
+                    gauss_law_fulfilled = False
+        if gauss_law_fulfilled:
+            for y in range(self.t):
+                for x in range(self.n):
+                    if x % 2 == 0:
+                        if self.fermion[x, y]:
+                            if self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y]:
+                                raise ValueError('Gauss Law is implemented wrong')
+                        else:
+                            if self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y] + 1:
+                                raise ValueError('Gauss Law is implemented wrong')
+                    else:
+                        if self.fermion[x, y]:
+                            if self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y] - 1:
+                                raise ValueError('Gauss Law is implemented wrong')
+                        else:
+                            if self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y]:
+                                raise ValueError('Gauss Law is implemented wrong')
+        else:
+            gauss_law_broken = False
+            for y in range(self.t):
+                for x in range(self.n):
+                    if x % 2 == 0:
+                        if self.fermion[x, y]:
+                            if not self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y]:
+                                gauss_law_broken = True
+                        else:
+                            if not self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y] + 1:
+                                gauss_law_broken = True
+                    else:
+                        if self.fermion[x, y]:
+                            if not self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y] - 1:
+                                gauss_law_broken = True
+                        else:
+                            if not self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y]:
+                                gauss_law_broken = True
+            if not gauss_law_broken:
+                raise ValueError('Gauss Law marks correct config as wrong')
+        return gauss_law_fulfilled
 
     def corr_function(self, steps):
         self.result = np.zeros(self.n)

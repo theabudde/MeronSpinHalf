@@ -33,11 +33,6 @@ class MeronAlgorithmImprovedEstimators(MeronAlgorithm):
             if meronness % 2 == 0:
                 self.is_meron[cluster] = 1
         self.n_merons = np.sum(self.is_meron)
-        if self.n_merons == 1:
-            self.draw_bonds()
-            print('one meron')
-        if self.n_merons == 2:
-            self.draw_bonds()
 
     def _two_point_functions(self):
         weight = np.zeros(self.n)
