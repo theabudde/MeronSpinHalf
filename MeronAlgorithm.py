@@ -25,6 +25,9 @@ class MeronAlgorithm:
         self.cluster_positions = {}
         # Bool whether to flip each cluster indexed by cluster_id
         self.flip = []
+        for i in range(self.n // 2):
+            for j in range(self.t):
+                self.fermion[2 * i, j] = True
 
     # reset cluster_id, cluster_positions, flip and reset fermions to the reference configuration
     def _reset(self):
