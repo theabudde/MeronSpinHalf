@@ -203,7 +203,7 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                         next_row, weight = self._charge_automaton(row, charge_index, case_character)
                         if not next_row == -1:
                             self.charge_combinations[row, charge_index, case_character] += weight * np.sum(
-                                self.charge_combinations[next_row, charge_index + 1], dtype=float)
+                                self.charge_combinations[next_row, charge_index + 1])
 
     def _generate_flips(self):
         row = 2
@@ -371,11 +371,11 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
         pass
 
     def mc_step(self):
-        # place new bonds
-        self._assign_bonds()
-
         # reset to reference config
         self._reset()
+
+        # place new bonds
+        self._assign_bonds()
 
         # find clusters
         self._find_clusters()
@@ -422,5 +422,5 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
         self._flip()
         self._calculate_gauge_field()
         self._test_gauss_law()
-
-        pass
+        # self.draw_bonds()
+        # input('Let us wait for user input. Let me know how many seconds to sleep now.\n')
