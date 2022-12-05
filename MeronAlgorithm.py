@@ -26,6 +26,7 @@ class MeronAlgorithm:
         # Bool whether to flip each cluster indexed by cluster_id
         self.flip = []
 
+    # reset cluster_id, cluster_positions, flip and reset fermions to the reference configuration
     def _reset(self):
         # cluster_id of the cluster in a given position
         self.cluster_id = np.full((self.n, self.t), -1)
@@ -38,7 +39,7 @@ class MeronAlgorithm:
             for j in range(self.t):
                 self.fermion[2 * i, j] = True
 
-    # Places vertical and horizontal bonds with probability corresponding to wa_ and  w_b
+    # Places vertical and horizontal bonds with probability corresponding to w_a and  w_b
     def _assign_bonds(self):
         for x, y in product(range(self.n), range(self.t)):
             if y % 2 != x % 2:
@@ -116,7 +117,7 @@ class MeronAlgorithm:
                             new_coordinates[1] == (self.cluster_positions[cluster_nr][1] - 1) % self.t:
                         self.cluster_positions[cluster_nr] = new_coordinates
 
-                    if new_coordinates == (x, y):
+                    if new_coordinates == start_coordinates:
                         break
                 # look where to find next cluster
                 cluster_nr += 1

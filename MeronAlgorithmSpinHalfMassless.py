@@ -13,17 +13,19 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
         MeronAlgorithmWithAGaussLaw.__init__(self, n, t, w_a, w_b, mc_steps)
         self.data_file_path = data_file_path
         self.job_array_nr = job_array_nr
+        self.horizontal_winding = np.array([0])
+        self.horizontal_winding_order = []
+        self.horizontally_winding_clusters_exist = False
+        self.charge_combinations = np.array([])
 
+    # reset cluster_order, charged_cluster_order, charged_clusters_exist, cluster_id, cluster_positions, flip and reset fermions to the reference configuration
+    # and horizontal_winding, horizontal_winding and horizontally_winding_clusters_exist
     def _reset(self):
+        # reset cluster_order, charged_cluster_order, charged_clusters_exist, cluster_id, cluster_positions, flip and reset fermions to the reference configuration
         MeronAlgorithmWithAGaussLaw._reset(self)
         self.horizontal_winding = np.array([0])
         self.horizontal_winding_order = []
         self.horizontally_winding_clusters_exist = False
-        # reset fermions
-        for i in range(self.n // 2):
-            for j in range(self.t):
-                self.fermion[2 * i, j] = True
-                self.fermion[2 * i + 1, j] = False
 
     def _charge_automaton(self, row, charge_index, case_character):
         next_row = -1
@@ -308,8 +310,13 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                     raise ("fermion got flipped wrong")
         return reweight_factor
 
+    # calculates the correlation function for n_steps configurations
+    # returns an array of length self.n that has the sum of correlation contributions between (0,0) and (i,0)
+    # in the i'th position.
+    # correlation will be result/n_steps
     def improved_two_point_function(self, n_steps):
         result = np.zeros(self.n)
+        # calculate next configuration and add the correlation to the result n_steps times
         for i in range(n_steps):
             self.mc_step()
             for site in range(self.n):
@@ -317,8 +324,10 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                     result[site] += 1
                 else:
                     result[site] -= 1
+            # print progress
             if i % (n_steps // 100) == 0:
                 print(f'i = {i}')
+        # multiply odd sites by -1
         for site in range(self.n):
             if site % 2:
                 result[site] *= -1
@@ -371,11 +380,11 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
         pass
 
     def mc_step(self):
-        # reset to reference config
-        self._reset()
-
         # place new bonds
         self._assign_bonds()
+
+        # reset to reference config
+        self._reset()
 
         # find clusters
         self._find_clusters()
@@ -398,7 +407,7 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                     self._calculate_neutral_combinations(charge, False)
             self._calculate_charge_combinations()
             # self.flip_histogram()
-            self.flip = np.zeros(self.n_clusters)
+            # self.flip = np.zeros(self.n_clusters)
             self._generate_flips()
 
         elif not self.horizontally_winding_clusters_exist and not self.charged_clusters_exist:

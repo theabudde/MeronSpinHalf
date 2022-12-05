@@ -19,21 +19,25 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
         self.cluster_order = {}
         # saves the nr of flip possibilites for +- and -+ starting from the corresponding cluster
         self.cluster_combinations = np.array([])
-        self.charge_combinations = np.array([])
+        self.charged_clusters_exist = False
         self.gauge_field = np.zeros((self.n, self.t))
 
+    # reset cluster_order, charged_cluster_order, charged_clusters_exist, cluster_id, cluster_positions, flip and reset fermions to the reference configuration
     def _reset(self):
+        # reset cluster_id, cluster_positions, flip and reset fermions to the reference configuration
         MeronAlgorithm._reset(self)
+
         self.charged_clusters_exist = False
         # order of charged clusters only or if only neutrals exist, the horizontally winding clusters
         self.charged_cluster_order = []
-        # order of nested neutral clusters indexed by their surrounding cluster/left charged neighbor
-        self.cluster_order = {}
+        self.gauge_field = np.zeros((self.n, self.t))
 
     def _set_sizes_of_arrays(self):
         self.cluster_charge = np.zeros(self.n_clusters)
         self.cluster_group = np.full(self.n_clusters, -1)
         self.cluster_combinations = np.zeros((self.n_clusters, 2))
+        # order of nested neutral clusters indexed by their surrounding cluster/left charged neighbor
+        self.cluster_order = {}
         for cluster in range(self.n_clusters):
             self.cluster_order[cluster] = []
 
@@ -117,7 +121,6 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
 
             if saved_positive_cluster_exists:
                 self.charged_cluster_order.append(saved_positive_cluster)
-            self.charge_combinations = np.zeros((self.n_clusters, 2))
 
     def _identify_horizontal_winding(self):
         self.horizontal_winding_order = []
