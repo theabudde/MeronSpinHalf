@@ -88,6 +88,8 @@ class MeronAlgorithm:
         color = tuple(np.append(np.random.choice(range(256), size=3), 127))
         return color
 
+    # assign cluster_id to each site, ensuring each cluster connected through bonds has one id from [0, n_clusters)
+    # record leftmost point of each cluster in cluster_positions
     def _find_clusters(self):
         visited = np.full((self.n, self.t), False)  # record if site has been visited
         # counter for how many clusters there are -1 and the ID given to each of the clusters
@@ -100,6 +102,7 @@ class MeronAlgorithm:
                 self.cluster_positions[cluster_nr] = new_coordinates
                 leftness = 0
                 max_leftness = 0
+                # loop around the cluster and record the leftmost point of the cluster
                 while True:
                     visited[new_coordinates] = True
                     self.cluster_id[new_coordinates] = cluster_nr  # give cluster its ID

@@ -32,6 +32,7 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
         self.charged_cluster_order = []
         self.gauge_field = np.zeros((self.n, self.t))
 
+    # reset cluster_charge, cluster_group, cluster_combinations and cluster_order to their correct dimension, which depends on n_clusters
     def _set_sizes_of_arrays(self):
         self.cluster_charge = np.zeros(self.n_clusters)
         self.cluster_group = np.full(self.n_clusters, -1)
@@ -72,6 +73,8 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
 
         image.save("config.jpg")
 
+    # fill cluster_charge with the clusters_charges
+    # determine the charged clusters order, starting with a negative charge and save it in charge_cluster_order
     def _identify_charged_clusters(self):
         # determine cluster's charges
         self.cluster_charge = np.zeros(self.n_clusters)
@@ -84,7 +87,6 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
             self.charged_clusters_exist = True
 
         if self.charged_clusters_exist:
-            # TODO find out whether there are an even or odd nr of consecutive occupancies and only add to order if its odd
             # determine order of charged clusters
             saved_positive_cluster = -1
             saved_positive_cluster_exists = False
