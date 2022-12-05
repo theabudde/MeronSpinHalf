@@ -320,7 +320,7 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
         for i in range(n_steps):
             self.mc_step()
             for site in range(self.n):
-                if self.fermion[1, 0] == self.fermion[site, 0]:
+                if self.fermion[0, 0] == self.fermion[site, 0]:
                     result[site] += 1
                 else:
                     result[site] -= 1
