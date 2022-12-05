@@ -15,7 +15,9 @@ class SpinHalfBruteForce(MeronAlgorithm):
         if self.n_clusters > 20:
             print(self.n_clusters)
         for flip in range(2 ** self.n_clusters):
-            self.flip = flip
+            flip = format(flip, f"0{self.n_clusters}b")
+            flip = list(flip)
+            self.flip = [int(x) for x in flip]
             self.fermion = np.full((self.n, self.t), False)
             for i in range(self.n // 2):
                 for j in range(self.t):
@@ -32,7 +34,7 @@ class SpinHalfBruteForce(MeronAlgorithm):
         self.result += result / n_legal_configs
 
     def _calculate_gauge_field(self):
-        self.gauge_field = np.zeros(self.n_clusters)
+        self.gauge_field = np.zeros((self.n, self.t))
         for x in range(self.n - 1):
             for y in range(1, self.t):
                 if (y + 1) % 2 != x % 2 or self.fermion[x, y] == self.fermion[x, y - 1]:
@@ -60,4 +62,5 @@ class SpinHalfBruteForce(MeronAlgorithm):
         for i in range(self.mc_steps):
             self.mc_step()
             self.generate_flips()
+            pass
         self.result /= self.mc_steps
