@@ -12,6 +12,8 @@ class SpinHalfBruteForce(MeronAlgorithm):
     def generate_flips(self):
         result = np.zeros(self.n)
         n_legal_configs = 0
+        if self.n_clusters > 20:
+            print(self.n_clusters)
         for flip in range(2 ** self.n_clusters):
             self.flip = flip
             self.fermion = np.full((self.n, self.t), False)
