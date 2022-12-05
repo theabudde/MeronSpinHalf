@@ -35,11 +35,10 @@ def main(argv):
     algorithm = SpinHalfBruteForce(lattice_width, 2 * time_steps, w_a, w_b, mc_steps)
 
     # Thermalise
-    for i in range(1000):
-        algorithm.mc_step()
+    algorithm.corr_function(1000)
 
     # calculate two point function
-    algorithm.corr_function()
+    algorithm.corr_function(mc_steps)
 
     # output result to csv file
     output_path = os.path.join(result_path,

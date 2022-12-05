@@ -73,12 +73,13 @@ class SpinHalfBruteForce(MeronAlgorithm):
                     return False
         return True
 
-    def corr_function(self):
-        for i in range(self.mc_steps):
+    def corr_function(self, steps):
+        self.result = np.zeros(self.n)
+        for i in range(steps):
             self._assign_bonds()
             self._reset()
             self._find_clusters()
             self.generate_flips()
             if i % 100 == 0:
                 print(i)
-        self.result /= self.mc_steps
+        self.result /= steps
