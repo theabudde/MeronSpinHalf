@@ -268,7 +268,8 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                 break
 
     def _calculate_gauge_field(self):
-        for x in range(self.n - 1):
+        self.gauge_field = np.zeros((self.n, self.t))
+        for x in range(self.n):
             for y in range(1, self.t):
                 if (y + 1) % 2 != x % 2 or self.fermion[x, y] == self.fermion[x, y - 1]:
                     self.gauge_field[x, y] = self.gauge_field[x, y - 1]
@@ -276,21 +277,26 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                     self.gauge_field[x, y] = self.gauge_field[x, y - 1] - 1
                 else:
                     self.gauge_field[x, y] = self.gauge_field[x, y - 1] + 1
-            if self.fermion[x + 1, 0] == x % 2:
-                self.gauge_field[x + 1, 0] = self.gauge_field[x, 0]
-            elif x % 2:
-                self.gauge_field[x + 1, 0] = self.gauge_field[x, 0] - 1
-            else:
-                self.gauge_field[x + 1, 0] = self.gauge_field[x, 0] + 1
+            if not x == self.n - 1:
+                if self.fermion[x + 1, 0] == x % 2:
+                    self.gauge_field[x + 1, 0] = self.gauge_field[x, 0]
+                elif x % 2:
+                    self.gauge_field[x + 1, 0] = self.gauge_field[x, 0] - 1
+                else:
+                    self.gauge_field[x + 1, 0] = self.gauge_field[x, 0] + 1
 
     def _test_gauss_law(self):
         if np.amax(self.gauge_field) - np.amin(self.gauge_field) > 1:
-            with open(os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'),
-                      'wb') as outp:  # Overwrites any existing file.
-                pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
-            raise ValueError('gauss law broken, pkl should be in',
-                             os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'))
-
+            return False
+        for i in range(self.t):
+            if self.fermion[0, i] == 1:
+                if self.gauge_field[- 1, i] != self.gauge_field[0, i]:
+                    return False
+            else:
+                if self.gauge_field[- 1, i] != self.gauge_field[0, i] + 1:
+                    return False
+        return True
+    
     def reweight_factor_vertical_bonds(self):
         reweight_factor = 1
         normalizing_factor = self.w_a
