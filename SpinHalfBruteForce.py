@@ -43,11 +43,11 @@ class SpinHalfBruteForce(MeronAlgorithm):
                 for site in range(self.n):
                     if self.fermion[0, 0] == self.fermion[site, 0]:
                         result[site] += 1
-                        if flip == 0:
+                        if int(flip) == 0:
                             result[site] += 1
                     else:
                         result[site] -= 1
-                        if flip == 0:
+                        if int(flip) == 0:
                             result[site] -= 1
 
         # choose one of the legal configs randomly and flip into this configuration
