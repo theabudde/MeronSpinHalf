@@ -11,29 +11,46 @@ class SpinHalfBruteForce(MeronAlgorithm):
         self.gauge_field = np.array([])
         self.result = np.zeros(n)
 
-    def generate_flips(self):
+    def _generate_flips(self):
         result = np.zeros(self.n)
         n_legal_configs = 0
         legal_configs = []
         if self.n_clusters > 20:
             print(self.n_clusters)
+        # go through all possible flips
         for flip in range(2 ** self.n_clusters):
+            # convert int to array filled with binary digits
             flip = format(flip, f"0{self.n_clusters}b")
             self.flip = [int(x) for x in list(flip)]
+
+            # reset fermion occupation to reference
             self.fermion = np.full((self.n, self.t), False)
             for i in range(self.n // 2):
                 for j in range(self.t):
                     self.fermion[2 * i, j] = True
+
+            # flip the clusters where flip[cluster_id] == 1
             self._flip()
+
+            # calculate the resulting field of this fermion occupation
             self._calculate_gauge_field()
+
+            # if gauss law is obeyed
             if self._test_gauss_law():
+                # add the correlation contribution to the result and save config in legal_configs
                 n_legal_configs += 1
                 legal_configs.append(flip)
                 for site in range(self.n):
                     if self.fermion[0, 0] == self.fermion[site, 0]:
                         result[site] += 1
+                        if flip == 0:
+                            result[site] += 1
                     else:
                         result[site] -= 1
+                        if flip == 0:
+                            result[site] -= 1
+
+        # choose one of the legal configs randomly and flip into this configuration
         flip = random.choice(legal_configs)
         self.flip = [int(x) for x in list(flip)]
         self.fermion = np.full((self.n, self.t), False)
@@ -41,6 +58,8 @@ class SpinHalfBruteForce(MeronAlgorithm):
             for j in range(self.t):
                 self.fermion[2 * i, j] = True
         self._flip()
+
+        # normalize result
         self.result += result / n_legal_configs
 
     def _calculate_gauge_field(self):
@@ -72,52 +91,15 @@ class SpinHalfBruteForce(MeronAlgorithm):
             else:
                 if self.gauge_field[- 1, i] != self.gauge_field[0, i] + 1:
                     gauss_law_fulfilled = False
-        if gauss_law_fulfilled:
-            for y in range(self.t):
-                for x in range(self.n):
-                    if x % 2 == 0:
-                        if self.fermion[x, y]:
-                            if self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y]:
-                                raise ValueError('Gauss Law is implemented wrong')
-                        else:
-                            if self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y] + 1:
-                                raise ValueError('Gauss Law is implemented wrong')
-                    else:
-                        if self.fermion[x, y]:
-                            if self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y] - 1:
-                                raise ValueError('Gauss Law is implemented wrong')
-                        else:
-                            if self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y]:
-                                raise ValueError('Gauss Law is implemented wrong')
-        else:
-            gauss_law_broken = False
-            for y in range(self.t):
-                for x in range(self.n):
-                    if x % 2 == 0:
-                        if self.fermion[x, y]:
-                            if not self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y]:
-                                gauss_law_broken = True
-                        else:
-                            if not self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y] + 1:
-                                gauss_law_broken = True
-                    else:
-                        if self.fermion[x, y]:
-                            if not self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y] - 1:
-                                gauss_law_broken = True
-                        else:
-                            if not self.gauge_field[(x - 1) % self.n, y] != self.gauge_field[x, y]:
-                                gauss_law_broken = True
-            if not gauss_law_broken:
-                raise ValueError('Gauss Law marks correct config as wrong')
         return gauss_law_fulfilled
 
-    def corr_function(self, steps):
+    def correlation_function(self, steps):
         self.result = np.zeros(self.n)
         for i in range(steps):
             self._assign_bonds()
             self._reset()
             self._find_clusters()
-            self.generate_flips()
+            self._generate_flips()
             if i % 100 == 0:
                 print(i)
         self.result /= steps

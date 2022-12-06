@@ -117,6 +117,8 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                         arrow_weight = pm_combinations + 1
         return next_row, arrow_weight
 
+    # input: surrounding cluster of combinations to be calculated (or left neighboring charge, or -2 for outermost neutral clusters) and whether it is plus_minus or not (-2 will have not plusminus of outermost neutrals)
+    # output: fills cluster_combinations with values for all clusters inside start_cluster and returns the total configs including the outermost
     def _calculate_neutral_combinations(self, start_cluster, plus_minus):
         result = np.array([0.0, 0.0])
         # multiply out product for clusters in the same level
@@ -189,7 +191,7 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
 
         # define legal final states
         self.charge_combinations[1, -1, 0] = 1.0
-        self.charge_combinations[2, -1, 0] = 1.0
+        self.charge_combinations[2, -1, 0] = 2.0
         self.charge_combinations[4, -1, 0] = 1.0
 
         for charge_index in range(len(self.charged_cluster_order) - 1, -1, -1):
@@ -255,16 +257,16 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
 
             row, weight = self._charge_automaton(row, charge_idx, case_character)
 
-    def _generate_flips_no_charges(self, plus_minus, p_plus_minus):
+    def _generate_flips_no_charges(self, outside_is_plus_minus, result_plus_minus):
         while True:
             self.flip = np.zeros(self.n_clusters)
-            if random.random() < p_plus_minus:
+            if result_plus_minus:
                 charge = -1
-                self._generate_neutral_flips(-2, charge, plus_minus)
+                self._generate_neutral_flips(-2, charge, outside_is_plus_minus)
             else:
                 charge = 1
-                self._generate_neutral_flips(-2, charge, plus_minus)
-            if not int("".join(str(int(k)) for k in self.flip)) == 0 or random.random() < 0.5:
+                self._generate_neutral_flips(-2, charge, outside_is_plus_minus)
+            if not int("".join(str(int(k)) for k in self.flip)) == 0:
                 break
 
     def _calculate_gauge_field(self):
@@ -418,16 +420,28 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
 
         elif not self.horizontally_winding_clusters_exist and not self.charged_clusters_exist:
             self._assign_groups_only_neutrals(0)
+            print('neutral')
             if self.n_clusters > 1:
                 plus_minus = self.cluster_positions[self.cluster_order[-2][0]][0] % 2
                 total_combinations = self._calculate_neutral_combinations(-2, not plus_minus)
+                # undo the operation the function did because it thaought -2 was a surrounding cluster
                 if plus_minus:
                     total_combinations[1] -= total_combinations[0] + 1
                 else:
                     total_combinations[0] -= total_combinations[1] + 1
-                p_plus_minus = (total_combinations[0] + 1) / (total_combinations[0] + total_combinations[1] + 2)
+                p_plus_minus = total_combinations[0] / (total_combinations[0] + total_combinations[1] + 2)
+                p_nothing_flipped = 2 / (total_combinations[0] + total_combinations[1] + 2)
+                p_minus_plus = total_combinations[1] / (total_combinations[0] + total_combinations[1] + 2)
+                action = np.random.choice(['plus_minus', 'nothing', 'minus_plus'],
+                                          p=[p_plus_minus, p_nothing_flipped, p_minus_plus])
                 # self.neutral_flip_histogram(plus_minus, p_plus_minus)
-                self._generate_flips_no_charges(plus_minus, p_plus_minus)
+                match action:
+                    case 'plus_minus':
+                        self._generate_flips_no_charges(plus_minus, True)
+                    case 'nothing':
+                        self.flip = np.zeros(self.n_clusters)
+                    case 'minus_plus':
+                        self._generate_flips_no_charges(plus_minus, False)
             else:
                 if random.random() < 0.5:
                     self.flip[0] = 1

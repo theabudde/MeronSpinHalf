@@ -21,9 +21,9 @@ def main(argv):
     if lattice_width < 4:
         raise ValueError('Algorithm only works for grid sizes 4 and higher')
     time_steps = int(argv[5])
+    if time_steps < 4:
+        raise ValueError('Algorithm only works for 4 or more time steps')
     mc_steps = int(argv[6])
-    if mc_steps % 10 != 0:
-        raise ValueError('error can only be calculated if mc steps is a multiple of 10')
     result_path = argv[7]
     job_array_nr = argv[8]
 
