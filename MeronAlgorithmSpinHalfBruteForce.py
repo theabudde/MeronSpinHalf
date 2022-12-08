@@ -1,15 +1,14 @@
 import random
-
 import numpy as np
 from MeronAlgorithm import MeronAlgorithm
 
 
-class SpinHalfBruteForce(MeronAlgorithm):
+class MeronAlgorithmSpinHalfBruteForce(MeronAlgorithm):
 
     def __init__(self, n, t, w_a, w_b, mc_steps):
         MeronAlgorithm.__init__(self, n, t, w_a, w_b, mc_steps)
         self.gauge_field = np.array([])
-        self.result = np.zeros(n)
+        self.correlation = np.zeros(n)
 
     def _generate_flips(self):
         result = np.zeros(self.n)
@@ -60,7 +59,7 @@ class SpinHalfBruteForce(MeronAlgorithm):
         self._flip()
 
         # normalize result
-        self.result += result / n_legal_configs
+        self.correlation += result / n_legal_configs
 
     def _calculate_gauge_field(self):
         self.gauge_field = np.zeros((self.n, self.t))
@@ -94,7 +93,7 @@ class SpinHalfBruteForce(MeronAlgorithm):
         return gauss_law_fulfilled
 
     def correlation_function(self, steps):
-        self.result = np.zeros(self.n)
+        self.correlation = np.zeros(self.n)
         for i in range(steps):
             self._assign_bonds()
             self._reset()
@@ -102,4 +101,4 @@ class SpinHalfBruteForce(MeronAlgorithm):
             self._generate_flips()
             if i % 100 == 0:
                 print(i)
-        self.result /= steps
+        self.correlation /= steps

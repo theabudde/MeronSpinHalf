@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from SpinHalfBruteForce import SpinHalfBruteForce
+from MeronAlgorithmSpinHalfBruteForce import MeronAlgorithmSpinHalfBruteForce
 import sys
 
 
@@ -32,7 +32,7 @@ def main(argv):
     w_b = np.exp(eps * U / 4) * np.sinh(eps * t)
 
     # Initialise to reference configuation
-    algorithm = SpinHalfBruteForce(lattice_width, 2 * time_steps, w_a, w_b, mc_steps)
+    algorithm = MeronAlgorithmSpinHalfBruteForce(lattice_width, 2 * time_steps, w_a, w_b, mc_steps)
 
     # Thermalise
     algorithm.correlation_function(1000)
@@ -44,7 +44,7 @@ def main(argv):
     output_path = os.path.join(result_path,
                                f'correlation_function_U={U}_t={t}_beta={beta}_L={lattice_width}_T={time_steps}.csv')
     columns = np.array(['n_steps'] + [f'corr_{i}' for i in range(lattice_width)])
-    data = np.concatenate((np.array([mc_steps]), algorithm.result))
+    data = np.concatenate((np.array([mc_steps]), algorithm.correlation))
     data = pd.DataFrame(np.array([data]), columns=columns)
     data.to_csv(output_path, mode='a', header=not os.path.exists(output_path))
 

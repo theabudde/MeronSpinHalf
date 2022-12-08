@@ -130,15 +130,6 @@ class MeronAlgorithm:
         self.n_clusters = cluster_nr
         self.flip = np.zeros(self.n_clusters)
 
-    def _test_cluster_assignment(self):
-        if -1 in self.cluster_id:
-            raise 'not all clusters have a group'
-
-        for cluster in range(self.n_clusters):
-            if self.cluster_id[self.cluster_positions[cluster]] != cluster:
-                raise 'cluster_position does not point to correct cluster'
-
-    # works only in reference configuration!
     def _cluster_loop_step(self, current_position):
         x = current_position[0]
         y = current_position[1]
@@ -180,17 +171,11 @@ class MeronAlgorithm:
                     next_position = right
         return next_position
 
-    def _test_cluster_loop_step(self):
-        position = (random.randint(0, self.n), random.randint(0, self.t))
-        if self.cluster_id[position] != self.cluster_id[self._cluster_loop_step(position)]:
-            raise 'loop step went to wrong cluster'
-
     def _flip(self):
         for i in range(self.n_clusters):
             if self.flip[i]:
                 start_position = self.cluster_positions[i]
                 position = start_position
-                # self.fermion[start_position] = not self.fermion[start_position]
                 while True:
                     position = self._cluster_loop_step(position)
                     self.fermion[position] = not self.fermion[position]
@@ -201,5 +186,5 @@ class MeronAlgorithm:
         self._assign_bonds()
         self._reset()
         self._find_clusters()
-        self.flip = [random.random() < 0.5 for i in range(self.n_clusters)]
+        self.flip = [np.random.random() < 0.5 for i in range(self.n_clusters)]
         self._flip()
