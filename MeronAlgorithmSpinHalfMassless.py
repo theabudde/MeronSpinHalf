@@ -381,7 +381,6 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
 
         elif not self.horizontally_winding_clusters_exist and not self.charged_clusters_exist:
             self._assign_groups_only_neutrals(0)
-            print('neutral')
             if self.n_clusters > 1:
                 plus_minus = self.cluster_positions[self.cluster_order[-2][0]][0] % 2
                 total_combinations = self._calculate_neutral_combinations(-2, not plus_minus)
