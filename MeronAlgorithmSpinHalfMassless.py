@@ -13,19 +13,6 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
         MeronAlgorithmWithAGaussLaw.__init__(self, n, t, w_a, w_b, mc_steps)
         self.data_file_path = data_file_path
         self.job_array_nr = job_array_nr
-        self.horizontal_winding = np.array([0])
-        self.horizontal_winding_order = []
-        self.horizontally_winding_clusters_exist = False
-        self.charge_combinations = np.array([])
-
-    # reset cluster_order, charged_cluster_order, charged_clusters_exist, cluster_id, cluster_positions, flip and reset fermions to the reference configuration
-    # and horizontal_winding, horizontal_winding and horizontally_winding_clusters_exist
-    def _reset(self):
-        # reset cluster_order, charged_cluster_order, charged_clusters_exist, cluster_id, cluster_positions, flip and reset fermions to the reference configuration
-        MeronAlgorithmWithAGaussLaw._reset(self)
-        self.horizontal_winding = np.array([0])
-        self.horizontal_winding_order = []
-        self.horizontally_winding_clusters_exist = False
 
     def _charge_automaton(self, row, charge_index, case_character):
         next_row = -1
@@ -260,24 +247,6 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                 self._generate_neutral_flips(-2, charge, outside_is_plus_minus)
             if not int("".join(str(int(k)) for k in self.flip)) == 0:
                 break
-
-    def _calculate_gauge_field(self):
-        self.gauge_field = np.zeros((self.n, self.t))
-        for x in range(self.n):
-            for y in range(1, self.t):
-                if (y + 1) % 2 != x % 2 or self.fermion[x, y] == self.fermion[x, y - 1]:
-                    self.gauge_field[x, y] = self.gauge_field[x, y - 1]
-                elif not self.fermion[x, y]:
-                    self.gauge_field[x, y] = self.gauge_field[x, y - 1] - 1
-                else:
-                    self.gauge_field[x, y] = self.gauge_field[x, y - 1] + 1
-            if not x == self.n - 1:
-                if self.fermion[x + 1, 0] == x % 2:
-                    self.gauge_field[x + 1, 0] = self.gauge_field[x, 0]
-                elif x % 2:
-                    self.gauge_field[x + 1, 0] = self.gauge_field[x, 0] - 1
-                else:
-                    self.gauge_field[x + 1, 0] = self.gauge_field[x, 0] + 1
 
     def _test_gauss_law(self):
         if np.amax(self.gauge_field) - np.amin(self.gauge_field) > 1:

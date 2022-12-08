@@ -22,6 +22,11 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
         self.charged_clusters_exist = False
         self.gauge_field = np.zeros((self.n, self.t))
 
+        self.horizontal_winding = np.array([0])
+        self.horizontal_winding_order = []
+        self.horizontally_winding_clusters_exist = False
+        self.charge_combinations = np.array([])
+
     # reset cluster_order, charged_cluster_order, charged_clusters_exist, cluster_id, cluster_positions, flip and reset fermions to the reference configuration
     def _reset(self):
         # reset cluster_id, cluster_positions, flip and reset fermions to the reference configuration
@@ -31,6 +36,10 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
         # order of charged clusters only or if only neutrals exist, the horizontally winding clusters
         self.charged_cluster_order = []
         self.gauge_field = np.zeros((self.n, self.t))
+
+        self.horizontal_winding = np.array([0])
+        self.horizontal_winding_order = []
+        self.horizontally_winding_clusters_exist = False
 
     # reset cluster_charge, cluster_group, cluster_combinations and cluster_order to their correct dimension, which depends on n_clusters
     def _set_sizes_of_arrays(self):
@@ -340,6 +349,24 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
             queue_index += 1
             if queue_index >= len(cluster_queue):
                 break
+
+    def _calculate_gauge_field(self):
+        self.gauge_field = np.zeros((self.n, self.t))
+        for x in range(self.n):
+            for y in range(1, self.t):
+                if (y + 1) % 2 != x % 2 or self.fermion[x, y] == self.fermion[x, y - 1]:
+                    self.gauge_field[x, y] = self.gauge_field[x, y - 1]
+                elif not self.fermion[x, y]:
+                    self.gauge_field[x, y] = self.gauge_field[x, y - 1] - 1
+                else:
+                    self.gauge_field[x, y] = self.gauge_field[x, y - 1] + 1
+            if not x == self.n - 1:
+                if self.fermion[x + 1, 0] == x % 2:
+                    self.gauge_field[x + 1, 0] = self.gauge_field[x, 0]
+                elif x % 2:
+                    self.gauge_field[x + 1, 0] = self.gauge_field[x, 0] - 1
+                else:
+                    self.gauge_field[x + 1, 0] = self.gauge_field[x, 0] + 1
 
     def _test_group_assignment(self):
         if -1 in self.cluster_group:
