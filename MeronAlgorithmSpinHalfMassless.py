@@ -220,40 +220,32 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                         self.flip[charge] = 0  # dont flip anything
                     case 1:
                         self.flip[charge] = 0
-                        if self.cluster_combinations[charge][0] > 0:
-                            self._generate_neutral_flips_no_zero(charge, -1, self.cluster_charge[charge] < 0)
-                        else:
-                            raise NotImplementedError
+                        self._generate_neutral_flips_no_zero(charge, -1, self.cluster_charge[charge] < 0)
                     case 2:
                         self.flip[charge] = 0
-                        if self.cluster_combinations[charge][1] > 0:
-                            self._generate_neutral_flips_no_zero(charge, 1, self.cluster_charge[charge] < 0)
-                        else:
-                            raise NotImplementedError
+                        self._generate_neutral_flips_no_zero(charge, 1, self.cluster_charge[charge] < 0)
                     case 3:
                         self.flip[charge] = 1
                         self._generate_neutral_flips(charge, self.cluster_charge[charge],
                                                      self.cluster_charge[charge] < 0)
             elif row == 0 or row == 4:
-                match case_character:
-                    case 0:
-                        self.flip[charge] = 0
-                        self._generate_neutral_flips(charge, self.cluster_charge[charge],
-                                                     self.cluster_charge[charge] < 0)
-                    case 1:
-                        self.flip[charge] = 1
-                        self._generate_neutral_flips(charge, self.cluster_charge[charge],
-                                                     self.cluster_charge[charge] < 0)
+                if case_character == 0:
+                    self.flip[charge] = 0
+                    self._generate_neutral_flips(charge, self.cluster_charge[charge],
+                                                 self.cluster_charge[charge] < 0)
+                elif case_character == 1:
+                    self.flip[charge] = 1
+                    self._generate_neutral_flips(charge, self.cluster_charge[charge],
+                                                 self.cluster_charge[charge] < 0)
             elif row == 1 or row == 3:
-                match case_character:
-                    case 0:
-                        self.flip[charge] = 0
-                        self._generate_neutral_flips(charge, - self.cluster_charge[charge],
-                                                     self.cluster_charge[charge] < 0)
-                    case 1:
-                        self.flip[charge] = 1
-                        self._generate_neutral_flips(charge, self.cluster_charge[charge],
-                                                     self.cluster_charge[charge] < 0)
+                if case_character == 0:
+                    self.flip[charge] = 0
+                    self._generate_neutral_flips(charge, - self.cluster_charge[charge],
+                                                 self.cluster_charge[charge] < 0)
+                elif case_character == 1:
+                    self.flip[charge] = 1
+                    self._generate_neutral_flips(charge, self.cluster_charge[charge],
+                                                 self.cluster_charge[charge] < 0)
 
             row, weight = self._charge_automaton(row, charge_idx, case_character)
 
@@ -449,13 +441,14 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                     self.flip[0] = 0
 
         self._flip()
-        self._calculate_gauge_field()
-        if not self._test_gauss_law():
-            with open(os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'),
-                      'wb') as outp:  # Overwrites any existing file.
-                pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
-            raise ValueError('gauss law broken, pkl should be in',
-                             os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'))
+
+        # self._calculate_gauge_field()
+        # if not self._test_gauss_law():
+        #     with open(os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'),
+        #               'wb') as outp:  # Overwrites any existing file.
+        #         pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
+        #     raise ValueError('gauss law broken, pkl should be in',
+        #                      os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'))
 
         # self.draw_bonds()
         # input('Let us wait for user input. Let me know how many seconds to sleep now.\n')
