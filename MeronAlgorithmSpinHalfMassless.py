@@ -13,6 +13,8 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
         MeronAlgorithmWithAGaussLaw.__init__(self, n, t, w_a, w_b, mc_steps)
         self.data_file_path = data_file_path
         self.job_array_nr = job_array_nr
+        self.n_total_data_steps = 0
+        self.correlation = 0
 
     def _charge_automaton(self, row, charge_index, case_character):
         next_row = -1
@@ -300,6 +302,8 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
             if site % 2:
                 result[site] *= -1
 
+        self.correlation += result
+        self.n_total_data_steps += n_steps
         return result, n_steps
 
     def flip_histogram(self):

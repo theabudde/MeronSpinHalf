@@ -66,7 +66,7 @@ def main(argv):
                           f'Final_state_of_U={U}_t={t}_beta={beta}_width={lattice_width}_timesteps={time_steps}')
     if not os.path.exists(folder):
         os.makedirs(folder)
-    file = os.path.join(folder, '{job_array_nr}.pkl')
+    file = os.path.join(folder, f'{job_array_nr}.pkl')
     with open(file, 'wb') as outp:  # Overwrites any existing file.
         pickle.dump(algorithm, outp, pickle.HIGHEST_PROTOCOL)
     print('End pkl should be in', file)
