@@ -293,10 +293,13 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
                     result[site] += 1
                 else:
                     result[site] -= 1
+            if i % (n_steps // 100) == 0:
+                print(i)
         # multiply odd sites by -1
         for site in range(self.n):
             if site % 2:
                 result[site] *= -1
+
         return result, n_steps
 
     def flip_histogram(self):
@@ -407,13 +410,13 @@ class MeronAlgorithmSpinHalfMassless(MeronAlgorithmWithAGaussLaw):
 
         self._flip()
 
-        # self._calculate_gauge_field()
-        # if not self._test_gauss_law():
-        #     with open(os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'),
-        #               'wb') as outp:  # Overwrites any existing file.
-        #         pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
-        #     raise ValueError('gauss law broken, pkl should be in',
-        #                      os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'))
+        self._calculate_gauge_field()
+        if not self._test_gauss_law():
+            with open(os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'),
+                      'wb') as outp:  # Overwrites any existing file.
+                pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
+            raise ValueError('gauss law broken, pkl should be in',
+                             os.path.join(self.data_file_path, 'ErrorObjects/' + self.job_array_nr + '.pkl'))
 
         # self.draw_bonds()
         # input('Let us wait for user input. Let me know how many seconds to sleep now.\n')

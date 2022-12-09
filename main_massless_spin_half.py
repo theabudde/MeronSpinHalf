@@ -1,4 +1,5 @@
 import os
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -39,11 +40,16 @@ def main(argv):
                                                job_array_nr)
 
     # Thermalise
-    for i in range(1000):
+    for i in range(100):
         algorithm.mc_step()
 
     # calculate two point function
+
+    start = time.time()
+
     two_point, n_steps = algorithm.improved_two_point_function(mc_steps)
+
+    end = time.time()
 
     # output result to csv file
     output_path = os.path.join(result_path,
@@ -52,6 +58,16 @@ def main(argv):
     data = np.concatenate((np.array([n_steps]), two_point))
     data = pd.DataFrame(np.array([data]), columns=columns)
     data.to_csv(output_path, mode='a', header=not os.path.exists(output_path))
+
+    print('duration:', end - start, ' s')
+
+    folder = os.path.join(result_path, 'EndObjects')
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    file = os.path.join(folder, f'U={U}_t={t}_beta={beta}_width={lattice_width}_timesteps={time_steps}.pkl')
+    with open(file, 'wb') as outp:  # Overwrites any existing file.
+        pickle.dump(algorithm, outp, pickle.HIGHEST_PROTOCOL)
+    print('End pkl should be in', file)
 
 
 if __name__ == "__main__":

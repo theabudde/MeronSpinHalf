@@ -100,15 +100,21 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
             saved_positive_cluster = -1
             saved_positive_cluster_exists = False
             is_first_cluster = True
-            for i in range(self.n):
+            i = - 1
+            while True:
+                i += 1
+                if i >= self.n:
+                    break
                 if self.cluster_charge[self.cluster_id[i, 0]] != 0 and not self.cluster_id[
                                                                                i, 0] in self.charged_cluster_order:
                     n_consecutive_cluster_occupancies = 1
+                    n_until_next_cluster = 0
                     for j in range(1, self.n):
                         if self.cluster_id[i, 0] == self.cluster_id[(i + j) % self.n, 0]:
                             n_consecutive_cluster_occupancies += 1
+                            n_until_next_cluster += 1
                         elif self.cluster_charge[self.cluster_id[(i + j) % self.n, 0]] == 0:
-                            continue
+                            n_until_next_cluster += 1
                         else:
                             break
                     for j in range(1, self.n):
@@ -129,7 +135,7 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
                         elif self.cluster_id[i, 0] != saved_positive_cluster:
                             if n_consecutive_cluster_occupancies % 2 == 1:
                                 self.charged_cluster_order.append(self.cluster_id[i, 0])
-
+                    i += n_until_next_cluster
             if saved_positive_cluster_exists:
                 self.charged_cluster_order.append(saved_positive_cluster)
 
@@ -155,22 +161,28 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
             saved_cluster_position = (-1, -1)
             # TODO: make sure negative cluster is first and count from bottom to top so neutrals are on right side
             # determine order of winding clusters
-            for i in range(self.t - 1, -1, -1):
+            i = self.t
+            while True:
+                i -= 1
+                if i <= 0:
+                    break
                 if self.horizontal_winding[self.cluster_id[0, i]] != 0 and not self.cluster_id[
                                                                                    0, i] in self.horizontal_winding_order:
                     n_consecutive_cluster_occupancies = 1
                     for j in range(1, self.t):
                         if self.cluster_id[0, i] == self.cluster_id[0, (i + j) % self.t]:
                             n_consecutive_cluster_occupancies += 1
-                        elif self.cluster_charge[self.cluster_id[0, (i + j) % self.t]] == 0:
+                        elif self.horizontal_winding[self.cluster_id[0, (i + j) % self.t]] == 0:
                             continue
                         else:
                             break
+                    n_until_next_cluster = 0
                     for j in range(1, self.t):
                         if self.cluster_id[0, i] == self.cluster_id[0, (i - j) % self.t]:
                             n_consecutive_cluster_occupancies += 1
-                        elif self.cluster_charge[self.cluster_id[0, (i - j) % self.t]] == 0:
-                            continue
+                            n_until_next_cluster += 1
+                        elif self.horizontal_winding[self.cluster_id[0, (i - j) % self.t]] == 0:
+                            n_until_next_cluster += 1
                         else:
                             break
                     if n_consecutive_cluster_occupancies % 2 == 1:
@@ -186,6 +198,7 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
                         elif self.cluster_id[0, i] != saved_positive_cluster:
                             self.horizontal_winding_order.append(self.cluster_id[0, i])
                             self.cluster_positions[self.cluster_id[0, i]] = (0, i)
+                    i -= n_until_next_cluster
             if saved_positive_cluster_exists:
                 self.horizontal_winding_order.append(saved_positive_cluster)
                 self.cluster_positions[saved_positive_cluster] = saved_cluster_position
