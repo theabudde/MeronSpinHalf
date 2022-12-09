@@ -164,7 +164,7 @@ class MeronAlgorithmWithAGaussLaw(MeronAlgorithm):
             i = self.t
             while True:
                 i -= 1
-                if i <= 0:
+                if i < 0:
                     break
                 if self.horizontal_winding[self.cluster_id[0, i]] != 0 and not self.cluster_id[
                                                                                    0, i] in self.horizontal_winding_order:
